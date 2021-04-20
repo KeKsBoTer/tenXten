@@ -1,10 +1,18 @@
 use std::{thread, time};
 use rand::seq::SliceRandom;
 
+const MOVES:[(i8,i8);8] = [
+    (-3,0),
+    (3,0),
+    (0,-3),
+    (0,3),
+    (-2,-2),
+    (-2,2),
+    (2,-2),
+    (2,2),
+];
 
 type Move = (u8,u8);
-
-type Path = Vec<Move>;
 #[derive(Clone, Copy)]
 struct Board{
     field:[[u8;10];10],
@@ -25,40 +33,41 @@ impl Board {
         self.max_n == 100
     }
 
-    fn sum_moves(&self) -> usize{
-        let all_moves:Vec<(i8,i8)> = vec![
-            (-3,0),
-            (3,0),
-            (0,-3),
-            (0,3),
-            (-2,-2),
-            (-2,2),
-            (2,-2),
-            (2,2),
-        ];
+    fn sum_moves(&self,pos:Move) -> usize{
+        let occupied = |m:Move|{
+            m == pos || self.occupied(m)
+        };
         let mut sum =0;
         for i in 0..10{
             for j in 0..10{
-                if !self.occupied((j,i)){
-                    sum += all_moves.iter().filter(|(ox,oy)|{
+                if !occupied((j,i)){
+                    sum += MOVES.iter().filter(|(ox,oy)|{
                         let x = j as i8 - ox;
                         let y = i as i8 - oy;
-                        x >= 0 && y >=0 && x < 10 && y < 10 && !self.occupied((x as u8,y as u8))
+                        x >= 0 && y >=0 && x < 10 && y < 10 && !occupied((x as u8, y as u8))
                     }).count()
                 }
             }
         }
         return sum;
     }
-}
 
-impl From<Path> for Board{
-    fn from(path: Path) -> Self {
-        let mut b = Board::default();
-        for p in path{
-            b.add_number(p)
+
+    fn possible_moves(&self, pos: Option<Move>) -> Vec<Move>{
+        match pos{
+            None => (1..100).into_iter().map(|i|(i/10 as u8,i%10 as u8)).collect(),
+            Some(pos)=>{
+                MOVES.iter().filter_map(|(ox,oy)|{
+                    let x = pos.0 as i8 - ox;
+                    let y = pos.1 as i8 - oy;
+                    if x >= 0 && y >=0 && x < 10 && y < 10 && !self.occupied((x as u8,y as u8)){
+                        Some((x as u8,y as u8))
+                    }else{
+                        None
+                    }
+                }).collect()
+            }
         }
-        b
     }
 }
 
@@ -88,30 +97,7 @@ impl State{
         }
     }
     fn possible_moves(&self) -> Vec<Move>{
-        match self.pos{
-            None => (1..100).into_iter().map(|i|(i/10 as u8,i%10 as u8)).collect(),
-            Some(pos)=>{
-                let all_moves:Vec<(i8,i8)> = vec![
-                    (-3,0),
-                    (3,0),
-                    (0,-3),
-                    (0,3),
-                    (-2,-2),
-                    (-2,2),
-                    (2,-2),
-                    (2,2),
-                ];
-                all_moves.iter().filter_map(|(ox,oy)|{
-                    let x = pos.0 as i8 - ox;
-                    let y = pos.1 as i8 - oy;
-                    if x >= 0 && y >=0 && x < 10 && y < 10 && !self.board.occupied((x as u8,y as u8)){
-                        Some((x as u8,y as u8))
-                    }else{
-                        None
-                    }
-                }).collect()
-            }
-        }
+        self.board.possible_moves(self.pos)
     }
 
     fn make_move(&mut self, m:Move){
@@ -132,13 +118,9 @@ impl State{
             }
         }
 
-        let mut mm = moves.iter().map(|m|{
-            let mut b = self.board.clone();
-            b.add_number(*m);
-            (b.sum_moves(),*m)
-        }).collect::<Vec<(usize,Move)>>();
-        mm.sort_by_key(|m|m.0);
-        moves = mm.iter().rev().map(|m|m.1).collect::<Vec<Move>>();
+        moves.sort_by_cached_key(|m|{
+            - (self.board.sum_moves(*m) as i32)
+        });
 
 
         for m in moves{
