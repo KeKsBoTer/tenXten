@@ -1,4 +1,4 @@
-use std::{thread, time};
+use std::{thread, time, usize};
 use rand::seq::SliceRandom;
 
 const MOVES:[(i8,i8);8] = [
@@ -14,12 +14,12 @@ const MOVES:[(i8,i8);8] = [
 
 type Move = (u8,u8);
 #[derive(Clone, Copy)]
-struct Board{
-    field:[[u8;10];10],
-    max_n: u8
+struct Board<const SIZE: usize>{
+    field:[[usize;SIZE];SIZE],
+    max_n: usize
 }
 
-impl Board {
+impl<const SIZE: usize> Board<SIZE>{
     fn occupied(&self,m:Move) -> bool{
         self.field[m.1 as usize][m.0 as usize] != 0
     }
@@ -30,21 +30,23 @@ impl Board {
     }
 
     fn is_complete(&self) -> bool{
-        self.max_n == 100
+        self.max_n == SIZE*SIZE
+    }
+
+    fn valid_and_not_occupied(&self,(x,y):(i8,i8)) -> bool{
+        x >= 0 && y >=0 && (x as usize) < SIZE && (y as usize) < SIZE && !self.occupied((x as u8, y as u8))
     }
 
     fn sum_moves(&self,pos:Move) -> usize{
-        let occupied = |m:Move|{
-            m == pos || self.occupied(m)
-        };
+        let occupied = |m:Move| m == pos || self.occupied(m);
         let mut sum =0;
-        for i in 0..10{
-            for j in 0..10{
-                if !occupied((j,i)){
+        for i in 0..SIZE{
+            for j in 0..SIZE{
+                if !occupied((j as u8,i as u8)){
                     sum += MOVES.iter().filter(|(ox,oy)|{
                         let x = j as i8 - ox;
                         let y = i as i8 - oy;
-                        x >= 0 && y >=0 && x < 10 && y < 10 && !occupied((x as u8, y as u8))
+                        self.valid_and_not_occupied((x,y))
                     }).count()
                 }
             }
@@ -55,12 +57,12 @@ impl Board {
 
     fn possible_moves(&self, pos: Option<Move>) -> Vec<Move>{
         match pos{
-            None => (1..100).into_iter().map(|i|(i/10 as u8,i%10 as u8)).collect(),
+            None => (1..SIZE*SIZE).into_iter().map(|i|((i/SIZE) as u8,(i%SIZE) as u8)).collect(),
             Some(pos)=>{
                 MOVES.iter().filter_map(|(ox,oy)|{
                     let x = pos.0 as i8 - ox;
                     let y = pos.1 as i8 - oy;
-                    if x >= 0 && y >=0 && x < 10 && y < 10 && !self.occupied((x as u8,y as u8)){
+                    if self.valid_and_not_occupied((x,y)){
                         Some((x as u8,y as u8))
                     }else{
                         None
@@ -69,31 +71,40 @@ impl Board {
             }
         }
     }
+
+    fn num_pos(&self, n:usize) -> Option<Move>{
+        for i in 0..SIZE {
+            for j in 0..SIZE {
+                if self.field[i][j] == n{
+                    return Some((j as u8,i as u8));
+                }
+            }
+        }
+        return None;
+    }
 }
 
-impl Default for Board {
+impl<const SIZE:usize> Default for Board<SIZE> {
     fn default() -> Self {
         Board{
-            field:[[0;10];10],
+            field:[[0;SIZE];SIZE],
             max_n:0,
         }
     }
 }
 
 #[derive(Clone)]
-struct State {
-    board:Board,
-    pos: Option<Move>,
-    path: Vec<Move>
+struct State<const SIZE: usize> {
+    board:Board<SIZE>,
+    pos: Option<Move>
 }
 
 
-impl State{
+impl<const SIZE: usize> State<SIZE>{
     fn new() -> Self{
         State{
             board:Board::default(),
-            pos: None,
-            path:vec![]
+            pos: None
         }
     }
     fn possible_moves(&self) -> Vec<Move>{
@@ -103,57 +114,62 @@ impl State{
     fn make_move(&mut self, m:Move){
         self.board.add_number(m);
         self.pos = Some(m);
-        self.path.push(m);
     }
 
-    fn find_solutions(&self) -> Option<State>{
+    fn find_solutions(&self,solutions:&mut Vec<State<SIZE>>,find_any:bool){
         let mut moves =  self.possible_moves();
 
         if moves.len() == 0{
             // game is done 
             if self.board.is_complete(){
-                return Some(self.clone());
-            }else{
-                return  None;
+                solutions.push(self.clone());
             }
+            return;
         }
 
         moves.sort_by_cached_key(|m|{
             - (self.board.sum_moves(*m) as i32)
         });
 
-
         for m in moves{
             let mut new_board = (*self).clone();
             new_board.make_move(m);
-            if let Some(solution) = new_board.find_solutions(){
-                return  Some(solution);
+            new_board.find_solutions(solutions,find_any);
+            if find_any && solutions.len() > 0 {
+                return;
             }
         }
-        return  None;
     }
 
-    fn solve(&self) -> Option<State>{
+    fn solve(&self, find_any:bool) -> Vec<State<SIZE>>{
         let new_board = (*self).clone();
-        new_board.find_solutions()
+        let mut solutions = Vec::<State<SIZE>>::new();
+        new_board.find_solutions(&mut solutions,find_any);
+        return  solutions;
     }
 
 
     fn play_solution(&self,delay:time::Duration){
-        let mut state = State::new();
+        let mut state = State::<SIZE>::new();
         println!("{}",state.to_string());
-        for m in self.path.iter(){
-            print!("{:}[21A",27 as char);
-            state.make_move(*m);
+        for i in 1..SIZE*SIZE+1{
+            let pos = self.board.num_pos(i).unwrap();
+            print!("{:}[{:}A",27 as char,2*SIZE+1);
+            state.make_move(pos);
             println!("{}",state.to_string());
             thread::sleep(delay);
         }
     }
 }
 
-impl ToString for State{
+impl<const SIZE: usize> ToString for State<SIZE>{
     fn to_string(&self) -> String{
         let possible_moves = self.possible_moves();
+        
+        let top = format!("╔══{:}═╗","═╤══".repeat(SIZE-1));
+        let divider = format!("\n╟──{:}─║\n","─┼──".repeat(SIZE-1));
+        let bottom = format!("╚══{:}═╝","═╧══".repeat(SIZE-1));
+
         let content = self.board.field.iter().enumerate().map(|(i,row)|-> String {
             let r_f = row.iter().enumerate().map(|(j,n)|{
                 if *n==0{
@@ -167,24 +183,8 @@ impl ToString for State{
                 }
             }).collect::<Vec<String>>().join("│");
             format!("║{:}║",r_f)
-        }).collect::<Vec<String>>().join("\n╟───┼───┼───┼───┼───┼───┼───┼───┼───┼───║\n");
-        format!("╔═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╗\n{:}\n╚═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╝",content)
-    }
-}
-
-impl ToString for Board{
-    fn to_string(&self) -> String{
-        let content = self.field.iter().map(|row|-> String {
-            let r_f = row.iter().map(|n|{
-                if *n==0{
-                    String::from("   ")
-                }else{
-                    format!("{: >3}",*n)
-                }
-            }).collect::<Vec<String>>().join("│");
-            format!("║{:}║",r_f)
-        }).collect::<Vec<String>>().join("\n╟───┼───┼───┼───┼───┼───┼───┼───┼───┼───║\n");
-        format!("╔═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╗\n{:}\n╚═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╝",content)
+        }).collect::<Vec<String>>().join(&divider);
+        format!("{:}\n{:}\n{:}",top,content,bottom)
     }
 }
 
@@ -200,22 +200,20 @@ fn main() {
 
     let mut rng = rand::thread_rng();
     let start = starts.choose(&mut rng).unwrap();
-    let mut state = State::new();
+    let mut state = State::<10>::new();
     state.make_move(*start);
 
     println!("Initial board:\n{}",state.to_string());
 
     println!("Searching for a solution...");
-    match state.solve(){
-        Some(solution)=> {
-            println!("Solution found:");
-            print!("\x07");
-            let delay = time::Duration::from_millis(100);
-            solution.play_solution( delay)
+    let solutions = state.solve(false);
+    if solutions.is_empty(){
+        println!("No solution found:");
+    }else{
+        println!("{:} solutions found:",solutions.len());
+        for s in solutions{
+            println!("{:}",s.to_string())
         }
-        None => {
-            println!("No solution found:");
-        }
-    };
+    }
    
 }
