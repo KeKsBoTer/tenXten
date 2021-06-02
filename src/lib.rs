@@ -1,8 +1,31 @@
+use js_sys::Uint32Array;
 use priority_queue::PriorityQueue;
 use std::fmt;
-use std::sync::mpsc::{channel, Receiver, Sender};
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
-use std::{thread, usize};
+
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::mpsc::{channel, Receiver, Sender};
+#[cfg(not(target_arch = "wasm32"))]
+use std::thread;
+
+#[cfg(target_arch = "wasm32")]
+use js_sys::{Array, JsString};
+
+#[cfg(target_arch = "wasm32")]
+extern crate serde_json;
+#[cfg(target_arch = "wasm32")]
+extern crate wasm_bindgen;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+#[macro_use]
+extern crate serde_derive;
+
+#[cfg(target_arch = "wasm32")]
+extern crate console_error_panic_hook;
 
 const MOVES: [(i32, i32); 8] = [
     (-3, 0),
@@ -18,6 +41,8 @@ const MOVES: [(i32, i32); 8] = [
 type Move = (usize, usize);
 
 type MoveValue = (usize, usize);
+
+#[cfg_attr(target_arch = "wasm32", derive(Serialize, Deserialize))]
 #[derive(Clone, Hash, Eq)]
 struct Board {
     field: Box<[Box<[usize]>]>,
@@ -109,6 +134,7 @@ impl Board {
     }
 
     /// finds the location of a number within the board
+    #[allow(dead_code)]
     fn num_pos(&self, n: usize) -> Option<Move> {
         if n > self.max_n {
             return None;
@@ -156,6 +182,7 @@ impl State {
         return new_board;
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn play(&self, delay: Duration) {
         let mut m_board = State::new(self.board.size);
         println!("{}", m_board.to_string());
@@ -179,6 +206,7 @@ impl State {
     }
 
     /// returns the first solution that is found
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn solve_one(&self) -> Option<State> {
         let (tx, rx): (Sender<State>, Receiver<State>) = channel();
         for m in self.possible_moves() {
@@ -190,6 +218,7 @@ impl State {
     }
 
     /// searches for all solutions and sends them through a channel
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn solve_all(&self, sender: Sender<State>) {
         let mut queue = PriorityQueue::<State, MoveValue>::new();
 
@@ -207,6 +236,24 @@ impl State {
 
             state.push_moves(&mut queue);
         }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn solve_one(&self) -> Option<State> {
+        let mut queue = PriorityQueue::<State, MoveValue>::new();
+
+        self.push_moves(&mut queue);
+
+        while !queue.is_empty() {
+            let (state, _) = queue.pop().unwrap();
+
+            if state.board.is_complete() {
+                return Some(state);
+            }
+
+            state.push_moves(&mut queue);
+        }
+        return None;
     }
 }
 
@@ -268,4 +315,36 @@ impl fmt::Display for State {
             .join(&divider);
         write!(f, "{:}\n{:}\n{:}", top, content, bottom)
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn solve(js_object: &JsValue) -> Option<Uint32Array> {
+    let field: Box<[Box<[usize]>]> = js_object.into_serde().unwrap();
+    let size = field.len();
+    let mut max_n = 0;
+    let mut max_n_pos = None;
+    for i in 0..size {
+        for j in 0..size {
+            if field[i][j] > max_n {
+                max_n = field[i][j];
+                max_n_pos = Some((j, i));
+            }
+        }
+    }
+    let state = State {
+        board: Board { field, max_n, size },
+        pos: max_n_pos,
+    };
+    return state.solve_one().and_then(|solution| unsafe {
+        Some(Uint32Array::view(
+            &solution
+                .board
+                .field
+                .iter()
+                .flat_map(|x| x.iter().map(|y| *y as u32))
+                .collect::<Vec<u32>>()
+                .as_slice(),
+        ))
+    });
 }
