@@ -1,6 +1,5 @@
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
-use std::{sync::mpsc, thread, time};
 use structopt::StructOpt;
 
 extern crate tenxten;
@@ -58,7 +57,7 @@ fn main() {
         println!("Initial board:\n{}", state.to_string());
     }
 
-    let (tx, rx): (Sender<tenxten::State>, Receiver<tenxten::State>) = mpsc::channel();
+    let (tx, rx): (Sender<tenxten::State>, Receiver<tenxten::State>) = channel();
 
     if opt.verbose {
         println!("searching for solution...");
@@ -66,16 +65,24 @@ fn main() {
 
     state.solve_async(tx);
 
-    if opt.verbose {
-        println!("solution(s) found:");
-    }
+    let mut first = true;
     for solution in rx.iter() {
-        if opt.find_all || opt.no_animation {
-            println!("{:}", &solution.to_string());
+        if first && opt.verbose {
+            first = false;
+            println!("solution(s) found:");
         }
-        if !opt.find_all {
-            solution.play_solution(Duration::from_millis(opt.animation_delay));
+        if opt.find_all {
+            println!("{:}", &solution.to_string());
+        } else {
+            if !opt.no_animation {
+                solution.play_solution(Duration::from_millis(opt.animation_delay));
+            } else {
+                println!("{:}", &solution.to_string());
+            }
             return;
         }
+    }
+    if first && opt.verbose {
+        println!("no solution found");
     }
 }
