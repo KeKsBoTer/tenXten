@@ -1,7 +1,8 @@
 use priority_queue::PriorityQueue;
 use std::fmt;
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
-use std::{sync::mpsc::Sender, thread, usize};
+use std::{thread, usize};
 
 const MOVES: [(i32, i32); 8] = [
     (-3, 0),
@@ -26,7 +27,7 @@ struct Board {
 
 impl PartialEq for Board {
     fn eq(&self, other: &Self) -> bool {
-        self.field == other.field
+        self.size == other.size && self.max_n == other.max_n && self.field == other.field
     }
 }
 
@@ -87,6 +88,7 @@ impl Board {
 
     fn possible_moves(&self, pos: Option<Move>) -> Vec<Move> {
         match pos {
+            // at the beginning all moves are possible
             None => (1..self.size * self.size)
                 .into_iter()
                 .map(|i| ((i / self.size) as usize, (i % self.size) as usize))
@@ -106,7 +108,11 @@ impl Board {
         }
     }
 
+    /// finds the location of a number within the board
     fn num_pos(&self, n: usize) -> Option<Move> {
+        if n > self.max_n {
+            return None;
+        }
         for i in 0..self.size {
             for j in 0..self.size {
                 if self.field[i][j] == n {
@@ -137,6 +143,8 @@ impl State {
             pos: None,
         }
     }
+
+    /// returns all possibles moves that can be done from the current state
     fn possible_moves(&self) -> Vec<Move> {
         self.board.possible_moves(self.pos)
     }
@@ -148,15 +156,11 @@ impl State {
         return new_board;
     }
 
-    pub fn num_pos(&self, n: usize) -> Option<Move> {
-        return self.board.num_pos(n);
-    }
-
-    pub fn play_solution(&self, delay: Duration) {
+    pub fn play(&self, delay: Duration) {
         let mut m_board = State::new(self.board.size);
         println!("{}", m_board.to_string());
-        for i in 1..self.board.size * self.board.size + 1 {
-            let pos = self.num_pos(i).unwrap();
+        for i in 0..self.board.max_n {
+            let pos = self.board.num_pos(i + 1).unwrap();
             print!("{:}[{:}A", 27 as char, 2 * self.board.size + 1);
             m_board = m_board.make_move(pos);
             println!("{}", m_board.to_string());
@@ -176,21 +180,13 @@ impl State {
 
     /// returns the first solution that is found
     pub fn solve_one(&self) -> Option<State> {
-        let mut queue = PriorityQueue::<State, MoveValue>::new();
-
-        self.push_moves(&mut queue);
-
-        while !queue.is_empty() {
-            let (state, _) = queue.pop().unwrap();
-
-            if state.board.is_complete() {
-                return Some(state);
-            }
-
-            state.push_moves(&mut queue);
+        let (tx, rx): (Sender<State>, Receiver<State>) = channel();
+        for m in self.possible_moves() {
+            let sender = tx.clone();
+            let state = self.make_move(m);
+            thread::spawn(move || state.solve_all(sender));
         }
-
-        return None;
+        return rx.recv().ok();
     }
 
     /// searches for all solutions and sends them through a channel

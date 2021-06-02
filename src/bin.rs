@@ -6,7 +6,7 @@ use structopt::StructOpt;
 extern crate tenxten;
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "basic")]
+#[structopt(name = "tenXten", about = "A cli for solving the 10x10 number game")]
 struct Opt {
     #[structopt(short, long, help = "find all solutions (takes very long)")]
     find_all: bool,
@@ -84,7 +84,7 @@ fn main() {
             if opt.no_animation {
                 println!("{:}", &solution.to_string());
             } else {
-                solution.play_solution(Duration::from_millis(opt.animation_delay));
+                solution.play(Duration::from_millis(opt.animation_delay));
             }
         } else if opt.verbose {
             println!("no solution found");

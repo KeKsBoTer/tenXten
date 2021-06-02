@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 rand = "0.8.3"
 structopt = { version = "0.3", default-features = false }
+priority-queue = "1.1.1"
 
 [lib]
 name = "tenxten"
