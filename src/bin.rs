@@ -1,4 +1,5 @@
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::thread;
 use std::time::Duration;
 use structopt::StructOpt;
 
@@ -50,39 +51,43 @@ fn main() {
         return;
     }
 
-    let mut state = tenxten::State::new(opt.board_size);
-    state.make_move((opt.x - 1, opt.y - 1));
+    let state = tenxten::State::new(opt.board_size).make_move((opt.x - 1, opt.y - 1));
 
     if opt.verbose {
         println!("Initial board:\n{}", state.to_string());
     }
 
-    let (tx, rx): (Sender<tenxten::State>, Receiver<tenxten::State>) = channel();
-
     if opt.verbose {
         println!("searching for solution...");
     }
 
-    state.solve_async(tx);
+    if opt.find_all {
+        let (tx, rx): (Sender<tenxten::State>, Receiver<tenxten::State>) = channel();
+        thread::spawn(move || state.solve_all(tx));
 
-    let mut first = true;
-    for solution in rx.iter() {
-        if first && opt.verbose {
-            first = false;
-            println!("solution(s) found:");
-        }
-        if opt.find_all {
-            println!("{:}", &solution.to_string());
-        } else {
-            if !opt.no_animation {
-                solution.play_solution(Duration::from_millis(opt.animation_delay));
-            } else {
-                println!("{:}", &solution.to_string());
+        let mut first = true;
+        for solution in rx.iter() {
+            if first && opt.verbose {
+                first = false;
+                println!("solutions found:");
             }
-            return;
+            println!("{:}", &solution.to_string());
         }
-    }
-    if first && opt.verbose {
-        println!("no solution found");
+        if first && opt.verbose {
+            println!("no solution found");
+        }
+    } else {
+        if let Some(solution) = state.solve_one() {
+            if opt.verbose {
+                println!("solution found:");
+            }
+            if opt.no_animation {
+                println!("{:}", &solution.to_string());
+            } else {
+                solution.play_solution(Duration::from_millis(opt.animation_delay));
+            }
+        } else if opt.verbose {
+            println!("no solution found");
+        }
     }
 }

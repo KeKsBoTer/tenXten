@@ -1,3 +1,4 @@
+use priority_queue::PriorityQueue;
 use std::fmt;
 use std::time::Duration;
 use std::{sync::mpsc::Sender, thread, usize};
@@ -14,11 +15,19 @@ const MOVES: [(i32, i32); 8] = [
 ];
 
 type Move = (usize, usize);
-#[derive(Clone)]
+
+type MoveValue = (usize, usize);
+#[derive(Clone, Hash, Eq)]
 struct Board {
     field: Box<[Box<[usize]>]>,
     max_n: usize,
     size: usize,
+}
+
+impl PartialEq for Board {
+    fn eq(&self, other: &Self) -> bool {
+        self.field == other.field
+    }
 }
 
 impl Board {
@@ -57,12 +66,11 @@ impl Board {
     ///
     /// TODO: maybe only calculate the change of possible moves for a given move. This does not
     /// result in a better heuristic but could improve performance a bit.
-    fn sum_moves(&self, pos: Move) -> usize {
-        let occupied = |m: Move| m == pos || self.occupied(m);
+    fn sum_moves(&self) -> usize {
         let mut sum = 0;
         for i in 0..self.size {
             for j in 0..self.size {
-                if !occupied((j as usize, i as usize)) {
+                if !self.occupied((j as usize, i as usize)) {
                     sum += MOVES
                         .iter()
                         .filter(|(ox, oy)| {
@@ -110,10 +118,16 @@ impl Board {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash, Eq)]
 pub struct State {
     board: Board,
     pos: Option<Move>,
+}
+
+impl PartialEq for State {
+    fn eq(&self, other: &Self) -> bool {
+        self.board == other.board && self.pos == self.pos
+    }
 }
 
 impl State {
@@ -127,79 +141,11 @@ impl State {
         self.board.possible_moves(self.pos)
     }
 
-    pub fn make_move(&mut self, m: Move) {
-        self.board.add_number(m);
-        self.pos = Some(m);
-    }
-
-    fn find_solutions(&self, solutions: &mut Vec<State>, find_any: bool) {
-        let mut moves = self.possible_moves();
-
-        if moves.len() == 0 {
-            // game is done
-            if self.board.is_complete() {
-                solutions.push(self.clone());
-            }
-            return;
-        }
-
-        moves.sort_by_cached_key(|m| {
-            self.board.size * self.board.size * MOVES.len() - self.board.sum_moves(*m)
-        });
-
-        for m in moves {
-            let mut new_board = (*self).clone();
-            new_board.make_move(m);
-            new_board.find_solutions(solutions, find_any);
-            if find_any && solutions.len() > 0 {
-                return;
-            }
-        }
-    }
-
-    fn find_solutions_async(&self, sender: Sender<State>) {
-        let mut moves = self.possible_moves();
-
-        if moves.len() == 0 {
-            // game is done
-            if self.board.is_complete() {
-                if !sender.send(self.clone()).is_ok() {
-                    return;
-                }
-            }
-            return;
-        }
-
-        moves.sort_by_cached_key(|m| {
-            self.board.size * self.board.size * MOVES.len() - self.board.sum_moves(*m)
-        });
-
-        for m in moves {
-            let mut new_board = (*self).clone();
-            new_board.make_move(m);
-            new_board.find_solutions_async(sender.clone());
-        }
-    }
-
-    pub fn find_solution(&self) -> Option<State> {
-        let new_board = (*self).clone();
-        let mut solutions = Vec::<State>::new();
-        new_board.find_solutions(&mut solutions, true);
-        return solutions.pop();
-    }
-
-    pub fn solve_async(&self, sender: Sender<State>) {
-        let moves = self.possible_moves();
-        let mut children = Vec::new();
-        for m in moves {
-            let mut state = self.clone();
-            let tx = sender.clone();
-            state.make_move(m);
-            let child = thread::spawn(move || {
-                state.find_solutions_async(tx);
-            });
-            children.push(child);
-        }
+    pub fn make_move(&self, m: Move) -> State {
+        let mut new_board = self.clone();
+        new_board.board.add_number(m);
+        new_board.pos = Some(m);
+        return new_board;
     }
 
     pub fn num_pos(&self, n: usize) -> Option<Move> {
@@ -212,9 +158,58 @@ impl State {
         for i in 1..self.board.size * self.board.size + 1 {
             let pos = self.num_pos(i).unwrap();
             print!("{:}[{:}A", 27 as char, 2 * self.board.size + 1);
-            m_board.make_move(pos);
+            m_board = m_board.make_move(pos);
             println!("{}", m_board.to_string());
             thread::sleep(delay);
+        }
+    }
+
+    /// pushes the next possible moves to a priority queue
+    fn push_moves(&self, queue: &mut PriorityQueue<State, MoveValue>) {
+        for m in self.possible_moves() {
+            let new_board = self.make_move(m);
+            let priority = new_board.board.sum_moves();
+            let depth = new_board.board.max_n;
+            queue.push(new_board, (depth, priority));
+        }
+    }
+
+    /// returns the first solution that is found
+    pub fn solve_one(&self) -> Option<State> {
+        let mut queue = PriorityQueue::<State, MoveValue>::new();
+
+        self.push_moves(&mut queue);
+
+        while !queue.is_empty() {
+            let (state, _) = queue.pop().unwrap();
+
+            if state.board.is_complete() {
+                return Some(state);
+            }
+
+            state.push_moves(&mut queue);
+        }
+
+        return None;
+    }
+
+    /// searches for all solutions and sends them through a channel
+    pub fn solve_all(&self, sender: Sender<State>) {
+        let mut queue = PriorityQueue::<State, MoveValue>::new();
+
+        self.push_moves(&mut queue);
+
+        while !queue.is_empty() {
+            let (state, _) = queue.pop().unwrap();
+
+            if state.board.is_complete() {
+                if !sender.send(state).is_ok() {
+                    return;
+                }
+                continue;
+            }
+
+            state.push_moves(&mut queue);
         }
     }
 }
