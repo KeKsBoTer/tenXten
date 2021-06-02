@@ -1,8 +1,44 @@
-use rand::seq::SliceRandom;
+use std::sync::mpsc::{Receiver, Sender};
+use std::time::Duration;
 use std::{sync::mpsc, thread, time};
+use structopt::StructOpt;
+
 extern crate tenxten;
-use std::sync::mpsc::{Sender, Receiver};
-use priority_queue::{PriorityQueue};
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "basic")]
+struct Opt {
+    #[structopt(short, long, help = "find all solutions (takes very long)")]
+    find_all: bool,
+
+    #[structopt(short, long, help = "shows additional information")]
+    verbose: bool,
+
+    #[structopt(short, long, help = "do not animate the solution")]
+    no_animation: bool,
+
+    #[structopt(
+        short,
+        long,
+        default_value = "50",
+        help = "delay (ms) between frames in the animation"
+    )]
+    animation_delay: u64,
+
+    #[structopt(
+        short,
+        long,
+        default_value = "10",
+        help = "size (width and height) of the board"
+    )]
+    board_size: usize,
+
+    #[structopt(name = "column", help = "start column")]
+    x: usize,
+
+    #[structopt(name = "row", help = "start row")]
+    y: usize,
+}
 
 fn play_solution<const SIZE: usize>(state: &tenxten::State<SIZE>, delay: time::Duration) {
     let mut m_board = tenxten::State::<SIZE>::new();
@@ -17,43 +53,41 @@ fn play_solution<const SIZE: usize>(state: &tenxten::State<SIZE>, delay: time::D
 }
 
 fn main() {
-    let starts = [
-        (0, 0),
-        (1, 1),
-        (2, 2),
-        (3, 3),
-        (4, 4),
-        (1, 0),
-        (2, 1),
-        (3, 2),
-        (4, 3),
-        (2, 0),
-        (3, 1),
-        (4, 2),
-        (3, 0),
-        (4, 1),
-        (4, 0),
-    ];
+    let opt = Opt::from_args();
 
+    if opt.x > opt.board_size || opt.y > opt.board_size {
+        eprintln!(
+            "start row ({}) and column ({}) must be within board size ({})",
+            opt.y, opt.x, opt.board_size
+        );
+        return;
+    }
 
-    let mut rng = rand::thread_rng();
-    let start = &starts[2];//starts.choose(&mut rng).unwrap();
     let mut state = tenxten::State::<10>::new();
-    state.make_move((2,2));
+    state.make_move((opt.x - 1, opt.y - 1));
 
-    println!("Initial board:\n{}", state.to_string());
+    if opt.verbose {
+        println!("Initial board:\n{}", state.to_string());
+    }
 
     let (tx, rx): (Sender<tenxten::State<10>>, Receiver<tenxten::State<10>>) = mpsc::channel();
 
-    state.solve_async(tx);
-
-    for solution in rx.iter(){
-        println!("{:}", &solution.to_string());
+    if opt.verbose {
+        println!("searching for solution...");
     }
 
-    // if let Some(solution) = state.find_solution(){
-    //     println!("(thread)solution found:");
-    //     println!("{:}", &solution.to_string());
-    // }
+    state.solve_async(tx);
 
+    if opt.verbose {
+        println!("solution(s) found:");
+    }
+    for solution in rx.iter() {
+        if opt.find_all || opt.no_animation {
+            println!("{:}", &solution.to_string());
+        }
+        if !opt.find_all {
+            play_solution(&solution, Duration::from_millis(opt.animation_delay));
+            return;
+        }
+    }
 }

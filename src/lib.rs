@@ -1,5 +1,5 @@
-use std::{sync::mpsc::{Sender, Receiver}, thread, usize};
 use std::fmt;
+use std::{sync::mpsc::Sender, thread, usize};
 
 const MOVES: [(i32, i32); 8] = [
     (-3, 0),
@@ -142,7 +142,7 @@ impl<const SIZE: usize> State<SIZE> {
             return;
         }
 
-        moves.sort_by_cached_key(|m| SIZE*SIZE*MOVES.len()-self.board.sum_moves(*m));
+        moves.sort_by_cached_key(|m| SIZE * SIZE * MOVES.len() - self.board.sum_moves(*m));
 
         for m in moves {
             let mut new_board = (*self).clone();
@@ -154,19 +154,20 @@ impl<const SIZE: usize> State<SIZE> {
         }
     }
 
-
     fn find_solutions_async(&self, sender: Sender<State<SIZE>>) {
         let mut moves = self.possible_moves();
 
         if moves.len() == 0 {
             // game is done
             if self.board.is_complete() {
-                sender.send(self.clone()).unwrap();
+                if !sender.send(self.clone()).is_ok() {
+                    return;
+                }
             }
             return;
         }
 
-        moves.sort_by_cached_key(|m| SIZE*SIZE*MOVES.len()-self.board.sum_moves(*m));
+        moves.sort_by_cached_key(|m| SIZE * SIZE * MOVES.len() - self.board.sum_moves(*m));
 
         for m in moves {
             let mut new_board = (*self).clone();
@@ -182,20 +183,14 @@ impl<const SIZE: usize> State<SIZE> {
         return solutions.pop();
     }
 
-    pub fn find_all_solutions(&self) -> Vec<State<SIZE>> {
-        let new_board = (*self).clone();
-        let mut solutions = Vec::<State<SIZE>>::new();
-        new_board.find_solutions(&mut solutions, false);
-        return solutions;
-    }
-    pub fn solve_async(&self, sender:Sender<State<SIZE>>){
+    pub fn solve_async(&self, sender: Sender<State<SIZE>>) {
         let moves = self.possible_moves();
         let mut children = Vec::new();
-        for m in moves{
+        for m in moves {
             let mut state = self.clone();
             let tx = sender.clone();
             state.make_move(m);
-            let child = thread::spawn(move||{
+            let child = thread::spawn(move || {
                 state.find_solutions_async(tx);
             });
             children.push(child);
