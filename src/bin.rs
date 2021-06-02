@@ -40,18 +40,6 @@ struct Opt {
     y: usize,
 }
 
-fn play_solution<const SIZE: usize>(state: &tenxten::State<SIZE>, delay: time::Duration) {
-    let mut m_board = tenxten::State::<SIZE>::new();
-    println!("{}", m_board.to_string());
-    for i in 1..SIZE * SIZE + 1 {
-        let pos = state.num_pos(i).unwrap();
-        print!("{:}[{:}A", 27 as char, 2 * SIZE + 1);
-        m_board.make_move(pos);
-        println!("{}", m_board.to_string());
-        thread::sleep(delay);
-    }
-}
-
 fn main() {
     let opt = Opt::from_args();
 
@@ -63,14 +51,14 @@ fn main() {
         return;
     }
 
-    let mut state = tenxten::State::<10>::new();
+    let mut state = tenxten::State::new(opt.board_size);
     state.make_move((opt.x - 1, opt.y - 1));
 
     if opt.verbose {
         println!("Initial board:\n{}", state.to_string());
     }
 
-    let (tx, rx): (Sender<tenxten::State<10>>, Receiver<tenxten::State<10>>) = mpsc::channel();
+    let (tx, rx): (Sender<tenxten::State>, Receiver<tenxten::State>) = mpsc::channel();
 
     if opt.verbose {
         println!("searching for solution...");
@@ -86,7 +74,7 @@ fn main() {
             println!("{:}", &solution.to_string());
         }
         if !opt.find_all {
-            play_solution(&solution, Duration::from_millis(opt.animation_delay));
+            solution.play_solution(Duration::from_millis(opt.animation_delay));
             return;
         }
     }

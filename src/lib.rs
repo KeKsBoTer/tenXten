@@ -1,4 +1,5 @@
 use std::fmt;
+use std::time::Duration;
 use std::{sync::mpsc::Sender, thread, usize};
 
 const MOVES: [(i32, i32); 8] = [
@@ -14,12 +15,21 @@ const MOVES: [(i32, i32); 8] = [
 
 type Move = (usize, usize);
 #[derive(Clone)]
-struct Board<const SIZE: usize> {
-    field: [[usize; SIZE]; SIZE],
+struct Board {
+    field: Box<[Box<[usize]>]>,
     max_n: usize,
+    size: usize,
 }
 
-impl<const SIZE: usize> Board<SIZE> {
+impl Board {
+    fn new(size: usize) -> Self {
+        Board {
+            field: (vec![(vec![0; size]).into_boxed_slice(); size]).into_boxed_slice(),
+            max_n: 0,
+            size: size,
+        }
+    }
+
     fn occupied(&self, m: Move) -> bool {
         self.field[m.1 as usize][m.0 as usize] != 0
     }
@@ -30,14 +40,14 @@ impl<const SIZE: usize> Board<SIZE> {
     }
 
     fn is_complete(&self) -> bool {
-        self.max_n == SIZE * SIZE
+        self.max_n == self.size * self.size
     }
 
     fn valid_and_not_occupied(&self, (x, y): (i32, i32)) -> bool {
         x >= 0
             && y >= 0
-            && (x as usize) < SIZE
-            && (y as usize) < SIZE
+            && (x as usize) < self.size
+            && (y as usize) < self.size
             && !self.occupied((x as usize, y as usize))
     }
 
@@ -50,8 +60,8 @@ impl<const SIZE: usize> Board<SIZE> {
     fn sum_moves(&self, pos: Move) -> usize {
         let occupied = |m: Move| m == pos || self.occupied(m);
         let mut sum = 0;
-        for i in 0..SIZE {
-            for j in 0..SIZE {
+        for i in 0..self.size {
+            for j in 0..self.size {
                 if !occupied((j as usize, i as usize)) {
                     sum += MOVES
                         .iter()
@@ -69,9 +79,9 @@ impl<const SIZE: usize> Board<SIZE> {
 
     fn possible_moves(&self, pos: Option<Move>) -> Vec<Move> {
         match pos {
-            None => (1..SIZE * SIZE)
+            None => (1..self.size * self.size)
                 .into_iter()
-                .map(|i| ((i / SIZE) as usize, (i % SIZE) as usize))
+                .map(|i| ((i / self.size) as usize, (i % self.size) as usize))
                 .collect(),
             Some(pos) => MOVES
                 .iter()
@@ -89,8 +99,8 @@ impl<const SIZE: usize> Board<SIZE> {
     }
 
     fn num_pos(&self, n: usize) -> Option<Move> {
-        for i in 0..SIZE {
-            for j in 0..SIZE {
+        for i in 0..self.size {
+            for j in 0..self.size {
                 if self.field[i][j] == n {
                     return Some((j as usize, i as usize));
                 }
@@ -100,25 +110,16 @@ impl<const SIZE: usize> Board<SIZE> {
     }
 }
 
-impl<const SIZE: usize> Default for Board<SIZE> {
-    fn default() -> Self {
-        Board {
-            field: [[0; SIZE]; SIZE],
-            max_n: 0,
-        }
-    }
-}
-
 #[derive(Clone)]
-pub struct State<const SIZE: usize> {
-    board: Board<SIZE>,
+pub struct State {
+    board: Board,
     pos: Option<Move>,
 }
 
-impl<const SIZE: usize> State<SIZE> {
-    pub fn new() -> Self {
+impl State {
+    pub fn new(size: usize) -> Self {
         State {
-            board: Board::default(),
+            board: Board::new(size),
             pos: None,
         }
     }
@@ -131,7 +132,7 @@ impl<const SIZE: usize> State<SIZE> {
         self.pos = Some(m);
     }
 
-    fn find_solutions(&self, solutions: &mut Vec<State<SIZE>>, find_any: bool) {
+    fn find_solutions(&self, solutions: &mut Vec<State>, find_any: bool) {
         let mut moves = self.possible_moves();
 
         if moves.len() == 0 {
@@ -142,7 +143,9 @@ impl<const SIZE: usize> State<SIZE> {
             return;
         }
 
-        moves.sort_by_cached_key(|m| SIZE * SIZE * MOVES.len() - self.board.sum_moves(*m));
+        moves.sort_by_cached_key(|m| {
+            self.board.size * self.board.size * MOVES.len() - self.board.sum_moves(*m)
+        });
 
         for m in moves {
             let mut new_board = (*self).clone();
@@ -154,7 +157,7 @@ impl<const SIZE: usize> State<SIZE> {
         }
     }
 
-    fn find_solutions_async(&self, sender: Sender<State<SIZE>>) {
+    fn find_solutions_async(&self, sender: Sender<State>) {
         let mut moves = self.possible_moves();
 
         if moves.len() == 0 {
@@ -167,7 +170,9 @@ impl<const SIZE: usize> State<SIZE> {
             return;
         }
 
-        moves.sort_by_cached_key(|m| SIZE * SIZE * MOVES.len() - self.board.sum_moves(*m));
+        moves.sort_by_cached_key(|m| {
+            self.board.size * self.board.size * MOVES.len() - self.board.sum_moves(*m)
+        });
 
         for m in moves {
             let mut new_board = (*self).clone();
@@ -176,14 +181,14 @@ impl<const SIZE: usize> State<SIZE> {
         }
     }
 
-    pub fn find_solution(&self) -> Option<State<SIZE>> {
+    pub fn find_solution(&self) -> Option<State> {
         let new_board = (*self).clone();
-        let mut solutions = Vec::<State<SIZE>>::new();
+        let mut solutions = Vec::<State>::new();
         new_board.find_solutions(&mut solutions, true);
         return solutions.pop();
     }
 
-    pub fn solve_async(&self, sender: Sender<State<SIZE>>) {
+    pub fn solve_async(&self, sender: Sender<State>) {
         let moves = self.possible_moves();
         let mut children = Vec::new();
         for m in moves {
@@ -200,9 +205,21 @@ impl<const SIZE: usize> State<SIZE> {
     pub fn num_pos(&self, n: usize) -> Option<Move> {
         return self.board.num_pos(n);
     }
+
+    pub fn play_solution(&self, delay: Duration) {
+        let mut m_board = State::new(self.board.size);
+        println!("{}", m_board.to_string());
+        for i in 1..self.board.size * self.board.size + 1 {
+            let pos = self.num_pos(i).unwrap();
+            print!("{:}[{:}A", 27 as char, 2 * self.board.size + 1);
+            m_board.make_move(pos);
+            println!("{}", m_board.to_string());
+            thread::sleep(delay);
+        }
+    }
 }
 
-impl<const SIZE: usize> fmt::Display for State<SIZE> {
+impl fmt::Display for State {
     /// Formats the board like this:
     /// ╔═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╗
     /// ║   │  2│   │   │  1│   │   │   │   │   ║
@@ -228,9 +245,9 @@ impl<const SIZE: usize> fmt::Display for State<SIZE> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let possible_moves = self.possible_moves();
 
-        let top = format!("╔══{:}═╗", "═╤══".repeat(SIZE - 1));
-        let divider = format!("\n╟──{:}─║\n", "─┼──".repeat(SIZE - 1));
-        let bottom = format!("╚══{:}═╝", "═╧══".repeat(SIZE - 1));
+        let top = format!("╔══{:}═╗", "═╤══".repeat(self.board.size - 1));
+        let divider = format!("\n╟──{:}─║\n", "─┼──".repeat(self.board.size - 1));
+        let bottom = format!("╚══{:}═╝", "═╧══".repeat(self.board.size - 1));
 
         let content = self
             .board
