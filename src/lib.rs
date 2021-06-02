@@ -1,3 +1,4 @@
+use std::{sync::mpsc::{Sender, Receiver}, thread, usize};
 use std::fmt;
 
 const MOVES: [(i32, i32); 8] = [
@@ -12,7 +13,7 @@ const MOVES: [(i32, i32); 8] = [
 ];
 
 type Move = (usize, usize);
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Board<const SIZE: usize> {
     field: [[usize; SIZE]; SIZE],
     max_n: usize,
@@ -141,7 +142,7 @@ impl<const SIZE: usize> State<SIZE> {
             return;
         }
 
-        moves.sort_by_cached_key(|m| -(self.board.sum_moves(*m) as i32));
+        moves.sort_by_cached_key(|m| SIZE*SIZE*MOVES.len()-self.board.sum_moves(*m));
 
         for m in moves {
             let mut new_board = (*self).clone();
@@ -153,6 +154,27 @@ impl<const SIZE: usize> State<SIZE> {
         }
     }
 
+
+    fn find_solutions_async(&self, sender: Sender<State<SIZE>>) {
+        let mut moves = self.possible_moves();
+
+        if moves.len() == 0 {
+            // game is done
+            if self.board.is_complete() {
+                sender.send(self.clone()).unwrap();
+            }
+            return;
+        }
+
+        moves.sort_by_cached_key(|m| SIZE*SIZE*MOVES.len()-self.board.sum_moves(*m));
+
+        for m in moves {
+            let mut new_board = (*self).clone();
+            new_board.make_move(m);
+            new_board.find_solutions_async(sender.clone());
+        }
+    }
+
     pub fn find_solution(&self) -> Option<State<SIZE>> {
         let new_board = (*self).clone();
         let mut solutions = Vec::<State<SIZE>>::new();
@@ -160,11 +182,24 @@ impl<const SIZE: usize> State<SIZE> {
         return solutions.pop();
     }
 
-    pub fn find_all_solution(&self) -> Vec<State<SIZE>> {
+    pub fn find_all_solutions(&self) -> Vec<State<SIZE>> {
         let new_board = (*self).clone();
         let mut solutions = Vec::<State<SIZE>>::new();
         new_board.find_solutions(&mut solutions, false);
         return solutions;
+    }
+    pub fn solve_async(&self, sender:Sender<State<SIZE>>){
+        let moves = self.possible_moves();
+        let mut children = Vec::new();
+        for m in moves{
+            let mut state = self.clone();
+            let tx = sender.clone();
+            state.make_move(m);
+            let child = thread::spawn(move||{
+                state.find_solutions_async(tx);
+            });
+            children.push(child);
+        }
     }
 
     pub fn num_pos(&self, n: usize) -> Option<Move> {

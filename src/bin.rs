@@ -1,6 +1,8 @@
 use rand::seq::SliceRandom;
-use std::{thread, time};
+use std::{sync::mpsc, thread, time};
 extern crate tenxten;
+use std::sync::mpsc::{Sender, Receiver};
+use priority_queue::{PriorityQueue};
 
 fn play_solution<const SIZE: usize>(state: &tenxten::State<SIZE>, delay: time::Duration) {
     let mut m_board = tenxten::State::<SIZE>::new();
@@ -33,19 +35,25 @@ fn main() {
         (4, 0),
     ];
 
+
     let mut rng = rand::thread_rng();
-    let start = starts.choose(&mut rng).unwrap();
+    let start = &starts[2];//starts.choose(&mut rng).unwrap();
     let mut state = tenxten::State::<10>::new();
-    state.make_move(*start);
+    state.make_move((2,2));
 
     println!("Initial board:\n{}", state.to_string());
 
-    println!("Searching for a solution...");
+    let (tx, rx): (Sender<tenxten::State<10>>, Receiver<tenxten::State<10>>) = mpsc::channel();
 
-    if let Some(solution) = state.find_solution() {
-        play_solution(&solution, time::Duration::from_millis(100));
-        println!("{:}", &solution.to_string())
-    } else {
-        println!("No solution found:");
+    state.solve_async(tx);
+
+    for solution in rx.iter(){
+        println!("{:}", &solution.to_string());
     }
+
+    // if let Some(solution) = state.find_solution(){
+    //     println!("(thread)solution found:");
+    //     println!("{:}", &solution.to_string());
+    // }
+
 }
