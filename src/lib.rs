@@ -1,4 +1,3 @@
-use js_sys::Uint32Array;
 use priority_queue::PriorityQueue;
 use std::fmt;
 #[cfg(not(target_arch = "wasm32"))]
@@ -10,7 +9,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 
 #[cfg(target_arch = "wasm32")]
-use js_sys::{Array, JsString};
+use js_sys::{Array, Number};
 
 #[cfg(target_arch = "wasm32")]
 extern crate serde_json;
@@ -319,7 +318,7 @@ impl fmt::Display for State {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn solve(js_object: &JsValue) -> Option<Uint32Array> {
+pub fn solve(js_object: &JsValue) -> Option<Array> {
     let field: Box<[Box<[usize]>]> = js_object.into_serde().unwrap();
     let size = field.len();
     let mut max_n = 0;
@@ -336,15 +335,20 @@ pub fn solve(js_object: &JsValue) -> Option<Uint32Array> {
         board: Board { field, max_n, size },
         pos: max_n_pos,
     };
-    return state.solve_one().and_then(|solution| unsafe {
-        Some(Uint32Array::view(
-            &solution
-                .board
-                .field
-                .iter()
-                .flat_map(|x| x.iter().map(|y| *y as u32))
-                .collect::<Vec<u32>>()
-                .as_slice(),
-        ))
+    // convert to 2d js array
+    return state.solve_one().and_then(|solution| {
+        let size = solution.board.size;
+        let a = Array::new_with_length(size as u32);
+        for i in 0..size {
+            let b = Array::new_with_length(size as u32);
+            for j in 0..size {
+                b.set(
+                    j as u32,
+                    Number::from(solution.board.field[i][j] as u32).into(),
+                );
+            }
+            a.set(i as u32, b.into());
+        }
+        Some(a)
     });
 }
