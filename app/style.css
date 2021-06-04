@@ -1,0 +1,120 @@
+@import url("https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500&display=swap");
+
+:root {
+  --background: #612ea7;
+  --background-second: #961880;
+  --highlight: #ffe99f;
+  --primary: #46c1a4;
+  --secondary: #1f2269;
+}
+
+body {
+  background: var(--background);
+  background-blend-mode: multiply;
+  background-size: 30%;
+  font-family: "M PLUS Rounded 1c", sans-serif;
+}
+
+main {
+  margin: 0 auto;
+  max-width: 800px;
+}
+
+table.board {
+  background-color: var(--background);
+  width: 800px;
+  height: 800px;
+  border-spacing: 5px;
+  border-radius: 10px;
+  table-layout: fixed;
+  padding: 2px;
+  box-shadow: var(--secondary) 0px 2px 4px 0px,
+    var(--primary) 0px 0px 0px 0px inset;
+}
+
+table.board td {
+  text-align: center;
+  font-weight: bold;
+  font-size: 2em;
+  color: var(--secondary);
+  width: 10%;
+  height: 10%;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 7px;
+  box-shadow: var(--secondary) 0px 2px 4px 0px,
+    var(--primary) 0px 0px 0px 0px inset;
+  border-collapse: collapse;
+  border-style: solid;
+  border: 3px solid transparent;
+  transition: background-color, border-color 0.5s;
+}
+
+table.board td.possible:hover {
+  border-color: var(--primary);
+  background-color: var(--highlight);
+  cursor: pointer;
+}
+
+table.board td:not(.possible):hover {
+  cursor: not-allowed;
+}
+
+table.board td.placed {
+  cursor: not-allowed;
+  /* opacity: 0.5; */
+}
+
+table.board td.possible {
+  background-color: var(--highlight);
+}
+
+table.board td.possible:active {
+  transform: translateY(2px);
+  box-shadow: var(--secondary) 0px 0px 0px 0px,
+    var(--primary) 0px 0px 0px 0px inset;
+}
+
+.toolbar {
+  padding: 10px 0;
+  display: flex;
+  align-content: center;
+  justify-content: center;
+}
+
+.toolbar button {
+  margin-right: 20px;
+}
+.toolbar button:last-child {
+  margin-right: 0;
+}
+
+button {
+  background-color: #fff;
+  color: var(--secondary);
+  box-shadow: 0px 6px 0px 0px #301a6b;
+  font-size: 19px;
+  width: 195px;
+  height: 46px;
+  padding: 0 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: row;
+  text-transform: uppercase;
+  font-weight: bold;
+  margin-bottom: 6px;
+  font-family: inherit;
+}
+
+button:hover {
+  background-color: #cbb6e9;
+}
+button:active {
+  margin-top: 4px;
+  margin-bottom: 2px;
+  box-shadow: 0px 2px 0px 0px #301a6b;
+}
