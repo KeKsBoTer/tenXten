@@ -2,164 +2,34 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>hello-wasm example</title>
+    <title>10x10 - Game</title>
     <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
   </head>
   <body>
-    <script type="module">
-      //   console.log(
-      //     solve([
-      //       [0, 0, 0, 0, 0],
-      //       [0, 1, 0, 0, 0],
-      //       [0, 0, 0, 0, 0],
-      //       [0, 0, 0, 0, 0],
-      //       [0, 0, 0, 0, 0],
-      //     ])
-      //   );
-      // });
-    </script>
-    <script type="module">
-      import init, { solve } from "./pkg/tenxten.js";
-      await init();
-
-      class Board {
-        static MOVES = [
-          [-3, 0],
-          [3, 0],
-          [0, -3],
-          [0, 3],
-          [-2, -2],
-          [-2, 2],
-          [2, -2],
-          [2, 2],
-        ];
-
-        constructor(domElm, size) {
-          this.domElm = domElm;
-          this.size = size;
-          this.reset();
-        }
-
-        onCellClick(row, column) {
-          if (this.isMovePossible(row, column)) {
-            let number = ++this.maxNumber;
-            this.setCell(row, column, number);
-            this.markPossible();
-            if (this.possibleMoves().length === 0) {
-              alert("Game Over!");
-              this.reset();
-            }
-          }
-        }
-
-        setCell(row, column, number) {
-          let cell = this.getCell(row, column);
-          cell.innerHTML = number;
-          cell.classList.add("placed");
-          this.board[row][column] = number;
-          this.currentPos = [row, column];
-        }
-
-        getCell(row, column) {
-          return this.domElm.querySelector(
-            `tr:nth-child(${row + 1}) td:nth-child(${column + 1}`
-          );
-        }
-
-        isEmpty(row, column) {
-          return (
-            row >= 0 &&
-            column >= 0 &&
-            row < this.size &&
-            column < this.size &&
-            this.board[row][column] === 0
-          );
-        }
-
-        possibleMoves() {
-          return Board.MOVES.map(([i, j]) => [
-            this.currentPos[0] + i,
-            this.currentPos[1] + j,
-          ]).filter(([i, j]) => this.isEmpty(i, j));
-        }
-
-        isMovePossible(row, column) {
-          if (this.currentPos === undefined) {
-            return true;
-          } else {
-            let possible = this.possibleMoves().find(
-              ([i, j]) => i == row && j == column
-            );
-            return this.board[row][column] === 0 && possible !== undefined;
-          }
-        }
-
-        markPossible() {
-          for (let i = 0; i < this.size; i++) {
-            for (let j = 0; j < this.size; j++) {
-              let cell = this.getCell(i, j);
-              if (this.isMovePossible(i, j)) {
-                cell.classList.add("possible");
-              } else if (cell.classList.contains("possible")) {
-                cell.classList.remove("possible");
-              }
-            }
-          }
-        }
-
-        reset() {
-          this.maxNumber = 0;
-          this.board = [];
-          for (let i = 0; i < this.size; i++) {
-            let row = [];
-            for (let i = 0; i < this.size; i++) {
-              row.push(0);
-            }
-            this.board.push(row);
-          }
-          this.currentPos = undefined;
-          while (this.domElm.lastChild) {
-            this.domElm.removeChild(this.domElm.lastChild);
-          }
-          for (let i = 0; i < this.size; i++) {
-            const row = document.createElement("tr");
-            for (let j = 0; j < this.size; j++) {
-              let cell = document.createElement("td");
-              cell.addEventListener("click", this.onCellClick.bind(this, i, j));
-              row.appendChild(cell);
-            }
-            this.domElm.appendChild(row);
-          }
-          this.markPossible();
-        }
-      }
-      let board = new Board(document.querySelector("#boardTable"), 10);
-      board.reset();
-
-      restartButton.addEventListener("click", () => {
-        if (confirm("Sure?")) board.reset();
-      });
-
-      solveButton.addEventListener("click", () => {
-        let solution = solve(board.board);
-        if (solution === undefined) {
-          alert("no solution found!");
-          return;
-        }
-        for (let i = 0; i < board.size; i++) {
-          for (let j = 0; j < board.size; j++) {
-            board.setCell(i, j, solution[i][j]);
-          }
-        }
-        board.markPossible();
-      });
-    </script>
     <main>
       <table class="board" id="boardTable"></table>
       <div class="toolbar">
-        <button id="solveButton"><span>Solve</span></button>
-        <button id="restartButton"><span>Restart</span></button>
+        <button id="solveButton" onclick="solveBoard()">
+          <span>Solve</span>
+        </button>
+        <button id="restartButton" onclick="restartMaybe()">
+          <span>Restart</span>
+        </button>
       </div>
     </main>
+    <div id="overlay" style="display: none">
+      <div class="popup" id="confirm">
+        <header>U Sure?</header>
+        <main>
+          <p>U Sure u wanna restart?</p>
+        </main>
+        <footer>
+          <button id="yes">Yes</button>
+          <button id="no">No</button>
+        </footer>
+      </div>
+    </div>
+    <script></script>
   </body>
 </html>

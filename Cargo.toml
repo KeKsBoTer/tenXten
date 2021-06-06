@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Simon Niedermayr <14186588+KeKsBoTer@users.noreply.github.com>"]
 edition = "2018"
 repository = "https://github.com/KeKsBoTer/tenXten"
+description="10x10 game and solver"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -6,6 +6,8 @@
   --highlight: #ffe99f;
   --primary: #46c1a4;
   --secondary: #1f2269;
+
+  height: 100%;
 }
 
 body {
@@ -13,10 +15,19 @@ body {
   background-blend-mode: multiply;
   background-size: 30%;
   font-family: "M PLUS Rounded 1c", sans-serif;
+
+  background-image: url(bg.png);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  margin: 0;
+  padding: 0;
 }
 
 main {
   margin: 0 auto;
+  margin-top: 20px;
+  padding: 10px;
   max-width: 800px;
 }
 
@@ -47,6 +58,8 @@ table.board td {
   border-style: solid;
   border: 3px solid transparent;
   transition: background-color, border-color 0.5s;
+  opacity: 0.3;
+  border: 2px solid transparent;
 }
 
 table.board td.possible:hover {
@@ -56,16 +69,22 @@ table.board td.possible:hover {
 }
 
 table.board td:not(.possible):hover {
-  cursor: not-allowed;
+  /* cursor: not-allowed; */
 }
 
 table.board td.placed {
-  cursor: not-allowed;
+  /* cursor: not-allowed; */
   /* opacity: 0.5; */
 }
 
 table.board td.possible {
   background-color: var(--highlight);
+  opacity: 1;
+}
+
+table.board td.placed {
+  opacity: 0.8;
+  border: 2px solid white;
 }
 
 table.board td.possible:active {
@@ -88,14 +107,14 @@ table.board td.possible:active {
   margin-right: 0;
 }
 
-button {
+main button {
   background-color: #fff;
   color: var(--secondary);
   box-shadow: 0px 6px 0px 0px #301a6b;
   font-size: 19px;
-  width: 195px;
-  height: 46px;
-  padding: 0 10px;
+  /* width: 195px; */
+  /* height: 46px; */
+  padding: 7px 15px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -110,11 +129,84 @@ button {
   font-family: inherit;
 }
 
-button:hover {
+main button:not(:disabled):hover {
   background-color: #cbb6e9;
 }
-button:active {
+main button:not(:disabled):active {
   margin-top: 4px;
   margin-bottom: 2px;
   box-shadow: 0px 2px 0px 0px #301a6b;
+}
+
+main button:disabled {
+  opacity: 0.4;
+  cursor: auto;
+}
+
+#overlay {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popup {
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: var(--secondary) 0px 2px 4px 0px,
+    var(--primary) 0px 0px 0px 0px inset;
+  padding: 10px;
+  display: block;
+  width: min(95%, 350px);
+  text-align: center;
+}
+
+.popup header {
+  font-size: 1.8em;
+  font-weight: bold;
+  color: var(--secondary);
+}
+
+.popup main {
+  margin: 0;
+}
+
+.popup footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.popup footer > * {
+  margin-right: 10px;
+}
+
+.popup footer > *:last-child {
+  margin-right: 0;
+}
+
+.popup button {
+  margin: 0px 8px;
+  cursor: pointer;
+  border: medium none;
+  background-color: rgb(86, 53, 220);
+  border-radius: 7px;
+  width: 160px;
+  height: 42px;
+  font-size: 17px;
+  color: rgb(255, 255, 255);
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-family: inherit;
+}
+
+.popup button:hover {
+  background-color: rgb(64, 32, 194);
 }

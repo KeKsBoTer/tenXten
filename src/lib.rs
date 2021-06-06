@@ -1,7 +1,7 @@
 use priority_queue::PriorityQueue;
-use std::fmt;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
+use std::{fmt, usize};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -238,16 +238,18 @@ impl State {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub fn solve_one(&self) -> Option<State> {
+    pub fn solve_one(&self, max_depth: Option<usize>) -> Option<State> {
         let mut queue = PriorityQueue::<State, MoveValue>::new();
 
         self.push_moves(&mut queue);
 
         while !queue.is_empty() {
-            let (state, _) = queue.pop().unwrap();
+            let (state, (depth, _)) = queue.pop().unwrap();
 
             if state.board.is_complete() {
                 return Some(state);
+            } else if max_depth.is_some() && depth >= max_depth.unwrap() {
+                return None;
             }
 
             state.push_moves(&mut queue);
@@ -318,7 +320,7 @@ impl fmt::Display for State {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn solve(js_object: &JsValue) -> Option<Array> {
+pub fn solve(js_object: &JsValue, max_depth: Option<usize>) -> Option<Array> {
     let field: Box<[Box<[usize]>]> = js_object.into_serde().unwrap();
     let size = field.len();
     let mut max_n = 0;
@@ -336,7 +338,7 @@ pub fn solve(js_object: &JsValue) -> Option<Array> {
         pos: max_n_pos,
     };
     // convert to 2d js array
-    return state.solve_one().and_then(|solution| {
+    return state.solve_one(max_depth).and_then(|solution| {
         let size = solution.board.size;
         let a = Array::new_with_length(size as u32);
         for i in 0..size {
