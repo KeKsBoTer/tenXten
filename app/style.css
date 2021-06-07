@@ -41,6 +41,9 @@ table.board {
   padding: 2px;
   box-shadow: var(--secondary) 0px 2px 4px 0px,
     var(--primary) 0px 0px 0px 0px inset;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
 }
 
 table.board td {
@@ -62,19 +65,10 @@ table.board td {
   border: 2px solid transparent;
 }
 
-table.board td.possible:hover {
+table.board:not(.disabled) td.possible:hover {
   border-color: var(--primary);
   background-color: var(--highlight);
   cursor: pointer;
-}
-
-table.board td:not(.possible):hover {
-  /* cursor: not-allowed; */
-}
-
-table.board td.placed {
-  /* cursor: not-allowed; */
-  /* opacity: 0.5; */
 }
 
 table.board td.possible {
@@ -87,7 +81,7 @@ table.board td.placed {
   border: 2px solid white;
 }
 
-table.board td.possible:active {
+table.board:not(.disabled) td.possible:active {
   transform: translateY(2px);
   box-shadow: var(--secondary) 0px 0px 0px 0px,
     var(--primary) 0px 0px 0px 0px inset;
@@ -97,6 +91,14 @@ table.board td.possible:active {
   padding: 10px 0;
   display: flex;
   align-content: center;
+  justify-content: space-between;
+}
+
+.toolbar .group {
+  display: flex;
+  flex-grow: 1;
+}
+.toolbar .group:nth-child(2) {
   justify-content: center;
 }
 
@@ -127,6 +129,8 @@ main button {
   font-weight: bold;
   margin-bottom: 6px;
   font-family: inherit;
+
+  height: 42px;
 }
 
 main button:not(:disabled):hover {
@@ -143,6 +147,22 @@ main button:disabled {
   cursor: auto;
 }
 
+main button .lds-ellipsis {
+  display: none;
+}
+
+main button.loading {
+  width: auto;
+}
+
+main button.loading .lds-ellipsis {
+  display: initial;
+}
+
+#cancelSolve {
+  color: red;
+}
+
 #overlay {
   position: fixed;
   width: 100%;
@@ -155,6 +175,7 @@ main button:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 10;
 }
 
 .popup {
@@ -209,4 +230,62 @@ main button:disabled {
 
 .popup button:hover {
   background-color: rgb(64, 32, 194);
+}
+
+.lds-ellipsis {
+  display: inline-block;
+  position: relative;
+  width: 50px;
+  height: 80px;
+  margin: -30px 0;
+  transform: scale(0.5);
+}
+.lds-ellipsis div {
+  position: absolute;
+  top: 33px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--secondary);
+  animation-timing-function: cubic-bezier(0, 1, 1, 0);
+}
+.lds-ellipsis div:nth-child(1) {
+  left: 8px;
+  animation: lds-ellipsis1 0.6s infinite;
+}
+.lds-ellipsis div:nth-child(2) {
+  left: 8px;
+  animation: lds-ellipsis2 0.6s infinite;
+}
+.lds-ellipsis div:nth-child(3) {
+  left: 32px;
+  animation: lds-ellipsis2 0.6s infinite;
+}
+.lds-ellipsis div:nth-child(4) {
+  left: 56px;
+  animation: lds-ellipsis3 0.6s infinite;
+}
+@keyframes lds-ellipsis1 {
+  0% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes lds-ellipsis3 {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0);
+  }
+}
+@keyframes lds-ellipsis2 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(24px, 0);
+  }
 }

@@ -10,12 +10,43 @@
     <main>
       <table class="board" id="boardTable"></table>
       <div class="toolbar">
-        <button id="solveButton" onclick="solveBoard()">
-          <span>Solve</span>
-        </button>
-        <button id="restartButton" onclick="restartMaybe()">
-          <span>Restart</span>
-        </button>
+        <div class="group">
+          <button id="undoButton" onclick="undo()" title="undo last move">
+            &lt;
+          </button>
+        </div>
+        <div class="group">
+          <button
+            id="solveButton"
+            onclick="solveBoard()"
+            title="solve current board"
+          >
+            <span>Solve</span>
+            <div class="lds-ellipsis">
+              <div></div>
+              <div></div>
+              <div></div>
+              <div></div>
+            </div>
+          </button>
+          <button
+            id="cancelSolve"
+            onclick="cancelSolver()"
+            style="display: none"
+            title="cancel solve"
+          >
+            X
+          </button>
+          <button
+            id="restartButton"
+            onclick="restartMaybe()"
+            title="restart game (clear board)"
+          >
+            <span>Restart</span>
+          </button>
+        </div>
+
+        <div class="group spacer"></div>
       </div>
     </main>
     <div id="overlay" style="display: none">
