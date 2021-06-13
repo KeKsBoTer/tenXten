@@ -1,24 +1,21 @@
+
+const MOVES = [
+    [-3, 0],
+    [3, 0],
+    [0, -3],
+    [0, 3],
+    [-2, -2],
+    [-2, 2],
+    [2, -2],
+    [2, 2],
+];
 class Board {
-    static MOVES = [
-        [-3, 0],
-        [3, 0],
-        [0, -3],
-        [0, 3],
-        [-2, -2],
-        [-2, 2],
-        [2, -2],
-        [2, 2],
-    ];
+
 
     constructor(domElm, size) {
         this.domElm = domElm;
         this.size = size;
-        this.initWorker();
         this.updateListeners = [];
-    }
-
-    initWorker() {
-        this.worker = new Worker("./solver_worker.js");
     }
 
     disable() {
@@ -36,8 +33,7 @@ class Board {
             this.updateCell(row, column, this.maxNumber + 1);
             this.markPossible();
             if (this.possibleMoves().length === 0) {
-                alert("Game Over!");
-                // todo add restart button
+                showDialog("gameOver")
             }
         }
     }
@@ -76,7 +72,7 @@ class Board {
     }
 
     possibleMoves() {
-        return Board.MOVES.map(([i, j]) => [
+        return MOVES.map(([i, j]) => [
             this.currentPos[0] + i,
             this.currentPos[1] + j,
         ]).filter(([i, j]) => this.isEmpty(i, j));
@@ -102,6 +98,11 @@ class Board {
                 } else if (cell.classList.contains("possible")) {
                     cell.classList.remove("possible");
                 }
+                if (parseInt(cell.innerText) === this.maxNumber) {
+                    cell.classList.add("current")
+                } else {
+                    cell.classList.remove("current")
+                }
             }
         }
     }
@@ -118,9 +119,8 @@ class Board {
             this.board.push(row);
         }
         this.currentPos = undefined;
-        while (this.domElm.lastChild) {
-            this.domElm.removeChild(this.domElm.lastChild);
-        }
+        this.domElm.innerHTML = ""
+        var rows = document.createDocumentFragment();
         for (let i = 0; i < this.size; i++) {
             const row = document.createElement("tr");
             for (let j = 0; j < this.size; j++) {
@@ -128,17 +128,32 @@ class Board {
                 cell.addEventListener("click", this.onCellClick.bind(this, i, j));
                 row.appendChild(cell);
             }
-            this.domElm.appendChild(row);
+            rows.appendChild(row);
         }
+        this.domElm.appendChild(rows);
+        this.resize();
         this.markPossible();
     }
 
-    solve() {
-        return new Promise((resolve, reject) => {
-            this.worker.onmessage = ({ data }) => resolve(data);
-            this.worker.onmessageerror = reject;
-            this.worker.postMessage(board.board)
-        });
+    async solve() {
+        let moves = this.possibleMoves();
+        let numWorkers = moves.length;
+        const workers = moves.map(() => new Worker("./solver_worker.js"));
+        let promises = [];
+        for (let i = 0; i < numWorkers; i++) {
+            promises.push(new Promise((resolve, reject) => {
+                workers[i].onmessage = ({ data }) => resolve(data);
+                workers[i].onmessageerror = reject;
+                workers[i].postMessage([board.board, i])
+            }));
+        }
+        let result = await Promise.any(promises);
+        (async () => {
+            for (let i = 0; i < numWorkers; i++) {
+                workers[i].terminate();
+            }
+        })();
+        return result;
     }
 
     playSolution(solution) {
@@ -179,9 +194,10 @@ class Board {
     }
 
     stopSolver() {
-        this.worker.terminate();
-        this.initWorker();
-        console.debug("canceled solver")
+        for (let i = 0; i < this.workers.length; i++) {
+            this.worker.terminate();
+        }
+        this.initWorkers();
     }
 
     positionOfNumber(number) {
@@ -195,6 +211,14 @@ class Board {
     fireUpdateEvent() {
         for (let fn of this.updateListeners)
             fn()
+    }
+
+    resize() {
+        let boardSize = Math.min(window.innerWidth, window.innerHeight - 100);
+        let boardWidth = boardSize - (2 * this.size);
+        boardTable.style.width = `${boardWidth}px`;
+        boardTable.style.height = `${boardWidth}px`;
+        buttonToolbar.style.width = `${boardWidth}px`;
     }
 }
 
@@ -223,6 +247,7 @@ board.addCellUpdateListener(() => {
 })
 
 function reset() {
+    hideDialog();
     board.reset();
     setButtonsDisabled(true);
 }
@@ -278,10 +303,10 @@ async function solveBoard() {
         console.error("error while finding solution", e)
     } finally {
         clearTimeout(tId);
-        if (solution)
-            await board.playSolution(solution)
         solveButton.classList.remove("loading");
         cancelSolve.style.display = "none";
+        if (solution)
+            await board.playSolution(solution)
         restartButton.disabled = false;
         undoButton.disabled = false;
         board.enable();
@@ -290,7 +315,7 @@ async function solveBoard() {
 
 
 function setButtonsDisabled(disabled) {
-    for (let btn of document.querySelectorAll(".toolbar button:not(#cancelSolve)")) {
+    for (let btn of document.querySelectorAll("#buttonToolbar button:not(#cancelSolve)")) {
         btn.disabled = disabled;
     }
 }
@@ -303,9 +328,12 @@ function cancelSolver() {
     board.enable();
 }
 
+// window.addEventListener('resize', () => board.resize());
+
 reset();
 
-
+window.hideDialog = hideDialog;
+window.reset = reset;
 window.restartMaybe = restartMaybe
 window.solveBoard = solveBoard
 window.undo = board.undo.bind(board)

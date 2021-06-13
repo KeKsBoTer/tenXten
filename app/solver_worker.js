@@ -7,8 +7,8 @@ const init = wasm_bindgen("./solver/tenxten_bg.wasm").catch(err => {
     throw err;
 });
 
-self.onmessage = async event => {
+self.onmessage = async ({ data }) => {
     await init;
-    let result = wasm_bindgen.solve(event.data);
+    let result = wasm_bindgen.solve(data[0], data[1]);
     self.postMessage(result || null);
 };

@@ -5,6 +5,7 @@ use std::{fmt, usize};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::mpsc::{channel, Receiver, Sender};
+
 #[cfg(not(target_arch = "wasm32"))]
 use std::thread;
 
@@ -204,18 +205,6 @@ impl State {
         }
     }
 
-    /// returns the first solution that is found
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn solve_one(&self) -> Option<State> {
-        let (tx, rx): (Sender<State>, Receiver<State>) = channel();
-        for m in self.possible_moves() {
-            let sender = tx.clone();
-            let state = self.make_move(m);
-            thread::spawn(move || state.solve_all(sender));
-        }
-        return rx.recv().ok();
-    }
-
     /// searches for all solutions and sends them through a channel
     #[cfg(not(target_arch = "wasm32"))]
     pub fn solve_all(&self, sender: Sender<State>) {
@@ -237,19 +226,35 @@ impl State {
         }
     }
 
+    /// returns the first solution that is found
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn solve_one(&self) -> Option<State> {
+        let (tx, rx): (Sender<State>, Receiver<State>) = channel();
+        for m in self.possible_moves() {
+            let sender = tx.clone();
+            let state = self.make_move(m);
+            //thread::spawn(move || state.solve_all(sender));
+            state.solve_all(sender)
+        }
+        return rx.recv().ok();
+    }
+
     #[cfg(target_arch = "wasm32")]
-    pub fn solve_one(&self, max_depth: Option<usize>) -> Option<State> {
+    pub fn solve_one(&self, start_idx: usize) -> Option<State> {
         let mut queue = PriorityQueue::<State, MoveValue>::new();
 
-        self.push_moves(&mut queue);
+        let moves = self.possible_moves();
+        let m = moves[start_idx % moves.len()];
+        let new_board = self.make_move(m);
+        let priority = new_board.board.sum_moves();
+        let depth = new_board.board.max_n;
+        queue.push(new_board, (depth, priority));
 
         while !queue.is_empty() {
-            let (state, (depth, _)) = queue.pop().unwrap();
+            let (state, _) = queue.pop().unwrap();
 
             if state.board.is_complete() {
                 return Some(state);
-            } else if max_depth.is_some() && depth >= max_depth.unwrap() {
-                return None;
             }
 
             state.push_moves(&mut queue);
@@ -320,7 +325,8 @@ impl fmt::Display for State {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn solve(js_object: &JsValue, max_depth: Option<usize>) -> Option<Array> {
+pub fn solve(js_object: &JsValue, start_idx: usize) -> Option<Array> {
+    console_error_panic_hook::set_once();
     let field: Box<[Box<[usize]>]> = js_object.into_serde().unwrap();
     let size = field.len();
     let mut max_n = 0;
@@ -338,7 +344,7 @@ pub fn solve(js_object: &JsValue, max_depth: Option<usize>) -> Option<Array> {
         pos: max_n_pos,
     };
     // convert to 2d js array
-    return state.solve_one(max_depth).and_then(|solution| {
+    return state.solve_one(start_idx).and_then(|solution| {
         let size = solution.board.size;
         let a = Array::new_with_length(size as u32);
         for i in 0..size {
