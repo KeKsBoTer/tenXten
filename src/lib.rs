@@ -197,17 +197,17 @@ impl State {
 
     /// pushes the next possible moves to a priority queue
     fn push_moves(&self, queue: &mut PriorityQueue<State, MoveValue>) {
-        for m in self.possible_moves() {
+        queue.extend(self.possible_moves().into_iter().map(|m| {
             let new_board = self.make_move(m);
             let priority = new_board.board.sum_moves();
             let depth = new_board.board.max_n;
-            queue.push(new_board, (depth, priority));
-        }
+            (new_board, (depth, priority))
+        }));
     }
 
     /// searches for all solutions and sends them through a channel
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn solve_all(&self, sender: Sender<State>) {
+    pub fn find_solutions(&self, sender: Sender<State>) {
         let mut queue = PriorityQueue::<State, MoveValue>::new();
 
         self.push_moves(&mut queue);
@@ -228,15 +228,24 @@ impl State {
 
     /// returns the first solution that is found
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn solve_one(&self) -> Option<State> {
+    pub fn solve_all(&self) -> std::sync::mpsc::IntoIter<State> {
         let (tx, rx): (Sender<State>, Receiver<State>) = channel();
+        let s = Box::new(rx);
         for m in self.possible_moves() {
-            let sender = tx.clone();
-            let state = self.make_move(m);
-            //thread::spawn(move || state.solve_all(sender));
-            state.solve_all(sender)
+            let new_state = self.make_move(m);
+            for m in new_state.possible_moves() {
+                let sender = tx.clone();
+                let state = new_state.make_move(m);
+                thread::spawn(move || state.find_solutions(sender));
+            }
         }
-        return rx.recv().ok();
+        return s.into_iter();
+    }
+
+    /// returns the first solution that is found
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn solve_one(&self) -> Option<State> {
+        self.solve_all().next()
     }
 
     #[cfg(target_arch = "wasm32")]

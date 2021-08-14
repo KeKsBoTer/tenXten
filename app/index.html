@@ -1,76 +1,89 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>10x10 - Game</title>
-    <link rel="stylesheet" href="style.css" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script type="module" src="app.js"></script>
-  </head>
-  <body>
-    <main>
-      <table class="board" id="boardTable"></table>
-      <div id="buttonToolbar">
-        <div class="group">
-          <button id="undoButton" onclick="undo()" title="undo last move">
-            &lt;
-          </button>
-        </div>
-        <div class="group">
-          <button
-            id="solveButton"
-            onclick="solveBoard()"
-            title="solve current board"
-          >
-            <span>Solve</span>
-            <div class="lds-ellipsis">
-              <div></div>
-              <div></div>
-              <div></div>
-              <div></div>
-            </div>
-          </button>
-          <button
-            id="cancelSolve"
-            onclick="cancelSolver()"
-            style="display: none"
-            title="cancel solve"
-          >
-            X
-          </button>
-          <button
-            id="restartButton"
-            onclick="restartMaybe()"
-            title="restart game (clear board)"
-          >
-            <span>Restart</span>
-          </button>
-        </div>
 
-        <div class="group spacer"></div>
+<head>
+  <meta charset="utf-8" />
+  <title>10x10 - Game</title>
+  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script type="module" src="app.js"></script>
+</head>
+
+<body>
+  <main>
+    <table class="board" id="boardTable"></table>
+    <div id="buttonToolbar">
+      <div class="group">
+        <button id="undoButton" onclick="undo()" title="undo last move">
+          &lt;
+        </button>
       </div>
-    </main>
-    <div id="overlay" style="display: none">
-      <div class="popup" id="confirm">
-        <header>Restart Game?</header>
-        <main>
-          <p>U Sure u wanna restart?</p>
-        </main>
-        <footer>
-          <button id="yes">Yes</button>
-          <button id="no">No</button>
-        </footer>
+      <div class="group">
+        <button id="solveButton" onclick="solveBoard()" title="solve current board">
+          <span>Solve</span>
+          <div class="lds-ellipsis">
+            <div></div>
+            <div></div>
+            <div></div>
+            <div></div>
+          </div>
+        </button>
+        <button id="cancelSolve" onclick="cancelSolver()" style="display: none" title="cancel solve">
+          X
+        </button>
+        <button id="restartButton" onclick="restartMaybe()" title="restart game (clear board)">
+          <span>Restart</span>
+        </button>
       </div>
-      <div class="popup" id="gameOver">
-        <header>Game Over</header>
-        <main>
-          <p>U fucked up</p>
-        </main>
-        <footer>
-          <button onclick="hideDialog()">Back</button>
-          <button onclick="reset()">Restart</button>
-        </footer>
+      <div class="group">
+        <label class="label-select">
+          <select title="board size" id="boardSizeSelect" onchange="changeBoardSize(this)"></select>
+        </label>
       </div>
     </div>
-  </body>
+  </main>
+  <div id="overlay" style="display: none">
+    <div class="popup" id="confirm">
+      <header>Restart Game?</header>
+      <main>
+        <p>U Sure u wanna restart?</p>
+      </main>
+      <footer>
+        <button id="no" title="No">No</button>
+        <button id="yes" title="Yes">Yes</button>
+      </footer>
+    </div>
+    <div class="popup" id="alertDialog">
+      <header class="title"></header>
+      <main>
+        <p class="text"></p>
+      </main>
+      <footer>
+        <button id="cancel" title="Cancel">Cancel</button>
+        <button id="restart" title="Restart">Restart</button>
+      </footer>
+    </div>
+    <div class="popup" id="gameOver">
+      <header>Game Over</header>
+      <main>
+        <p>U fucked up</p>
+      </main>
+      <footer>
+        <button onclick="hideDialog()">Back</button>
+        <button onclick="reset()">Restart</button>
+      </footer>
+    </div>
+    <div class="popup" id="winDialog">
+      <header>You win!</header>
+      <main>
+        <p>U are the man!</p>
+      </main>
+      <footer>
+        <button onclick="hideDialog()">Back</button>
+        <button onclick="reset()">Restart</button>
+      </footer>
+    </div>
+  </div>
+</body>
+
 </html>

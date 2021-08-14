@@ -9,13 +9,20 @@ const MOVES = [
     [2, -2],
     [2, 2],
 ];
+
+const DEFAULT_BOARD_SIZE = 10;
+
 class Board {
 
-
-    constructor(domElm, size) {
+    constructor(domElm) {
         this.domElm = domElm;
-        this.size = size;
+        this.size = DEFAULT_BOARD_SIZE;
         this.updateListeners = [];
+        this.maxNumber = undefined
+    }
+
+    isSolved() {
+        return this.maxNumber == this.size * this.size
     }
 
     disable() {
@@ -32,9 +39,11 @@ class Board {
         if (!this.disabled && this.isMovePossible(row, column)) {
             this.updateCell(row, column, this.maxNumber + 1);
             this.markPossible();
-            if (this.possibleMoves().length === 0) {
-                showDialog("gameOver")
-            }
+            if (this.possibleMoves().length === 0)
+                if (this.maxNumber != this.size * this.size)
+                    showDialog("gameOver");
+                else
+                    showDialog("winDialog");
         }
     }
 
@@ -123,9 +132,13 @@ class Board {
         var rows = document.createDocumentFragment();
         for (let i = 0; i < this.size; i++) {
             const row = document.createElement("tr");
+            let cellSize = (650 - 5 * this.size) / this.size;
+            row.style.height = `${cellSize}px`;
             for (let j = 0; j < this.size; j++) {
                 let cell = document.createElement("td");
                 cell.addEventListener("click", this.onCellClick.bind(this, i, j));
+                cell.style.fontSize = `${cellSize > 30 ? cellSize / 2 : cellSize / 3}px`;
+                console.log(cell.style.fontSize);
                 row.appendChild(cell);
             }
             rows.appendChild(row);
@@ -138,19 +151,19 @@ class Board {
     async solve() {
         let moves = this.possibleMoves();
         let numWorkers = moves.length;
-        const workers = moves.map(() => new Worker("./solver_worker.js"));
+        this.workers = moves.map(() => new Worker("./solver_worker.js"));
         let promises = [];
         for (let i = 0; i < numWorkers; i++) {
             promises.push(new Promise((resolve, reject) => {
-                workers[i].onmessage = ({ data }) => resolve(data);
-                workers[i].onmessageerror = reject;
-                workers[i].postMessage([board.board, i])
+                this.workers[i].onmessage = ({ data }) => resolve(data);
+                this.workers[i].onmessageerror = reject;
+                this.workers[i].postMessage([board.board, i])
             }));
         }
         let result = await Promise.any(promises);
         (async () => {
             for (let i = 0; i < numWorkers; i++) {
-                workers[i].terminate();
+                this.workers[i].terminate();
             }
         })();
         return result;
@@ -195,9 +208,9 @@ class Board {
 
     stopSolver() {
         for (let i = 0; i < this.workers.length; i++) {
-            this.worker.terminate();
+            this.workers[i].terminate();
         }
-        this.initWorkers();
+        this.workers = undefined;
     }
 
     positionOfNumber(number) {
@@ -220,6 +233,11 @@ class Board {
         boardTable.style.height = `${boardWidth}px`;
         buttonToolbar.style.width = `${boardWidth}px`;
     }
+
+    changeSize(size) {
+        this.size = size;
+        this.reset();
+    }
 }
 
 
@@ -234,7 +252,7 @@ function positionOfNumber(board, number) {
 }
 
 
-let board = new Board(document.querySelector("#boardTable"), 10);
+let board = new Board(document.querySelector("#boardTable"));
 
 board.addCellUpdateListener(() => {
     if (!board.maxNumber) {
@@ -250,6 +268,15 @@ function reset() {
     hideDialog();
     board.reset();
     setButtonsDisabled(true);
+
+    boardSizeSelect.innerHTML = undefined;
+    for (let i = 5; i <= 20; i++) {
+        let opt = document.createElement("option")
+        opt.value = i
+        opt.innerText = `${i}×${i}`
+        opt.selected = i == board.size;
+        boardSizeSelect.appendChild(opt)
+    }
 }
 
 function showDialog(dialogID) {
@@ -284,6 +311,25 @@ function confirmDialog() {
     });
 }
 
+function alert(title, text) {
+    return new Promise((resolve) => {
+        showDialog("alertDialog");
+        document.querySelector("#alertDialog .title").innerText = title;
+        if (text)
+            document.querySelector("#alertDialog .text").innerText = text;
+        else
+            document.querySelector("#alertDialog .text").style.display = "none";
+        document.getElementById("cancel").addEventListener("click", () => {
+            hideDialog();
+            resolve(true);
+        });
+        document.getElementById("restart").addEventListener("click", () => {
+            reset();
+            resolve(true);
+        });
+    });
+}
+
 async function restartMaybe() {
     if (await confirmDialog()) {
         reset();
@@ -307,12 +353,13 @@ async function solveBoard() {
         cancelSolve.style.display = "none";
         if (solution)
             await board.playSolution(solution)
+        else
+            await alert("No solution found", "There is no solution for this board")
         restartButton.disabled = false;
         undoButton.disabled = false;
         board.enable();
     }
 }
-
 
 function setButtonsDisabled(disabled) {
     for (let btn of document.querySelectorAll("#buttonToolbar button:not(#cancelSolve)")) {
@@ -328,14 +375,20 @@ function cancelSolver() {
     board.enable();
 }
 
-// window.addEventListener('resize', () => board.resize());
+
+async function changeBoardSize(elm) {
+    if (board.maxNumber == board.size * board.size || board.maxNumber == 0 || await confirmDialog()) {
+        let boardSize = elm.value;
+        board.changeSize(boardSize);
+    }
+}
 
 reset();
 
 window.hideDialog = hideDialog;
 window.reset = reset;
-window.restartMaybe = restartMaybe
-window.solveBoard = solveBoard
-window.undo = board.undo.bind(board)
-window.cancelSolver = cancelSolver
-
+window.restartMaybe = restartMaybe;
+window.solveBoard = solveBoard;
+window.undo = board.undo.bind(board);
+window.cancelSolver = cancelSolver;
+window.changeBoardSize = changeBoardSize;

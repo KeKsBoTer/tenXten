@@ -1,6 +1,8 @@
-use std::sync::mpsc::{channel, Receiver, Sender};
-use std::thread;
+use std::fs::File;
+use std::io::{self, Write};
+use std::path::Path;
 use std::time::Duration;
+
 use structopt::StructOpt;
 
 extern crate tenxten;
@@ -33,6 +35,13 @@ struct Opt {
     )]
     board_size: usize,
 
+    #[structopt(
+        short,
+        long,
+        help = "write solution(s) to file"
+    )]
+    output_file: Option<String>,
+
     #[structopt(name = "column", help = "start column")]
     x: usize,
 
@@ -61,17 +70,25 @@ fn main() {
         println!("searching for solution...");
     }
 
-    if opt.find_all {
-        let (tx, rx): (Sender<tenxten::State>, Receiver<tenxten::State>) = channel();
-        thread::spawn(move || state.solve_all(tx));
+    let mut out_writer = match opt.output_file {
+        Some(ref x) => {
+            let path = Path::new(x);
+            Box::new(File::create(&path).unwrap()) as Box<dyn Write>
+        }
+        None => Box::new(io::stdout()) as Box<dyn Write>,
+    };
 
+    if opt.find_all {
         let mut first = true;
-        for solution in rx.iter() {
+        for( i,solution) in state.solve_all().enumerate(){
             if first && opt.verbose {
                 first = false;
                 println!("solutions found:");
             }
-            println!("{:}", &solution.to_string());
+            out_writer.write_all(solution.to_string().as_bytes()).unwrap();
+            if i % 10 == 0{
+                print!("\rsolutions found: {:}",i)
+            }
         }
         if first && opt.verbose {
             println!("no solution found");
@@ -81,8 +98,8 @@ fn main() {
             if opt.verbose {
                 println!("solution found:");
             }
-            if opt.no_animation {
-                println!("{:}", &solution.to_string());
+            if opt.no_animation || opt.output_file.is_some() {
+                out_writer.write_all(solution.to_string().as_bytes()).unwrap();
             } else {
                 solution.play(Duration::from_millis(opt.animation_delay));
             }

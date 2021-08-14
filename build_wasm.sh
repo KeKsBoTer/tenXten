@@ -1,0 +1,1 @@
+cargo build --target=wasm32-unknown-unknown --lib && wasm-bindgen --target no-modules --out-dir app/solver target/wasm32-unknown-unknown/debug/tenxten.wasm
