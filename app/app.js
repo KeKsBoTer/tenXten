@@ -148,16 +148,12 @@ class Board {
     }
 
     async solve() {
-        let moves = this.possibleMoves();
-        this.workers = moves.map(() => new Worker("./solver_worker.js"));
-        let i = 0;
-        let promises = this.workers.map(p => new Promise((resolve, reject) => {
-            p.onmessage = ({ data }) => resolve(data);
-            p.onmessageerror = reject;
-            p.postMessage([board.board, i++])
-        }));
-        let result = await Promise.any(promises);
-        this.workers.forEach(p => p.terminate());
+        this.worker = this.worker || new Worker("./solver_worker.js");
+        let result = await new Promise((resolve, reject) => {
+            this.worker.onmessage = ({ data }) => resolve(data);
+            this.worker.onmessageerror = reject;
+            this.worker.postMessage([board.board])
+        });
         return result;
     }
 
@@ -196,13 +192,6 @@ class Board {
         else
             this.currentPos = this.positionOfNumber(this.maxNumber);
         this.markPossible();
-    }
-
-    stopSolver() {
-        for (let i = 0; i < this.workers.length; i++) {
-            this.workers[i].terminate();
-        }
-        this.workers = undefined;
     }
 
     positionOfNumber(number) {
@@ -331,7 +320,6 @@ async function restartMaybe() {
 async function solveBoard() {
     setButtonsDisabled(true);
     let tId = setTimeout(() => {
-        cancelSolve.style.display = null;
         solveButton.classList.add("loading");
     }, 500);
     board.disable();
@@ -342,7 +330,6 @@ async function solveBoard() {
     } finally {
         clearTimeout(tId);
         solveButton.classList.remove("loading");
-        cancelSolve.style.display = "none";
         if (solution)
             await board.playSolution(solution)
         else
@@ -358,15 +345,6 @@ function setButtonsDisabled(disabled) {
         btn.disabled = disabled;
     }
 }
-
-function cancelSolver() {
-    board.stopSolver();
-    solveButton.classList.remove("loading");
-    cancelSolve.style.display = "none";
-    setButtonsDisabled(false);
-    board.enable();
-}
-
 
 async function changeBoardSize(elm) {
     if (board.maxNumber == board.size * board.size || board.maxNumber == 0 || await confirmDialog()) {
@@ -385,5 +363,4 @@ window.reset = reset;
 window.restartMaybe = restartMaybe;
 window.solveBoard = solveBoard;
 window.undo = board.undo.bind(board);
-window.cancelSolver = cancelSolver;
 window.changeBoardSize = changeBoardSize;

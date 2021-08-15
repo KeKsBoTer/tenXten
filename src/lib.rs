@@ -218,20 +218,10 @@ impl State {
         return s.into_iter();
     }
 
-    /// returns the first solution that is found
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn solve_one(&self) -> Option<State> {
-        self.solve_all().next()
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn solve_one(&self, start_idx: usize) -> Option<State> {
         let mut queue = PriorityQueue::<State, MoveValue>::new();
 
-        let moves = self.possible_moves();
-        let m = moves[start_idx % moves.len()];
-        let new_board = self.make_move(m);
-        new_board.push_moves(&mut queue);
+        self.push_moves(&mut queue);
 
         while !queue.is_empty() {
             let (state, _) = queue.pop().unwrap();
@@ -308,7 +298,7 @@ impl fmt::Display for State {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn solve(js_object: &JsValue, start_idx: usize) -> Option<Array> {
+pub fn solve(js_object: &JsValue) -> Option<Array> {
     console_error_panic_hook::set_once();
     let field: Box<[Box<[usize]>]> = js_object.into_serde().unwrap();
     let size = field.len();
@@ -327,7 +317,7 @@ pub fn solve(js_object: &JsValue, start_idx: usize) -> Option<Array> {
         pos: max_n_pos,
     };
     // convert to 2d js array
-    return state.solve_one(start_idx).and_then(|solution| {
+    return state.solve_one().and_then(|solution| {
         let size = solution.board.size;
         let a = Array::new_with_length(size as u32);
         for i in 0..size {

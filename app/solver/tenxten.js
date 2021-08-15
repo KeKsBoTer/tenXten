@@ -120,12 +120,11 @@ function addBorrowedObject(obj) {
 }
 /**
 * @param {any} js_object
-* @param {number} start_idx
 * @returns {Array<any> | undefined}
 */
-__exports.solve = function(js_object, start_idx) {
+__exports.solve = function(js_object) {
     try {
-        var ret = wasm.solve(addBorrowedObject(js_object), start_idx);
+        var ret = wasm.solve(addBorrowedObject(js_object));
         return takeObject(ret);
     } finally {
         heap[stack_pointer++] = undefined;

@@ -3,10 +3,9 @@ declare namespace wasm_bindgen {
 	/* eslint-disable */
 	/**
 	* @param {any} js_object
-	* @param {number} start_idx
 	* @returns {Array<any> | undefined}
 	*/
-	export function solve(js_object: any, start_idx: number): Array<any> | undefined;
+	export function solve(js_object: any): Array<any> | undefined;
 	
 }
 
@@ -14,7 +13,7 @@ declare type InitInput = RequestInfo | URL | Response | BufferSource | WebAssemb
 
 declare interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly solve: (a: number, b: number) => number;
+  readonly solve: (a: number) => number;
   readonly __wbindgen_malloc: (a: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number) => number;
   readonly __wbindgen_free: (a: number, b: number) => void;
