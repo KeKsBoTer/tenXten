@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <path style="fill: rgb(70, 193, 164); stroke: rgb(31, 34, 105); stroke-width: 20px;" d="M 229.161 420.051 C 229.161 420.051 199.049 421.429 197.487 393.467 C 195.924 365.504 167.858 341.16 167.858 341.16 C 167.858 341.16 120.823 302.758 122.778 241.047 C 124.732 179.336 169.237 111.984 253.199 110.826 C 337.162 109.667 380.569 186.084 380.944 240.812 C 381.318 295.54 363.181 315.371 339.568 338.376 C 324.678 352.88 306.256 370.658 306.47 391.995 C 306.685 413.333 292.535 420.124 281.466 420.105 C 270.396 420.085 236.023 419.207 229.161 420.051 Z"/>
+  <path style="fill: none; stroke-linecap: round; stroke-width: 25px; stroke: rgb(31, 34, 105);" d="M 212.671 451.084 L 293.286 451.51"/>
+  <path style="fill: none; stroke-linecap: round; stroke-width: 25px; stroke: rgb(31, 34, 105);" d="M 213.297 485.705 L 291.666 486.544"/>
+  <path style="fill: none; stroke-linecap: round; stroke-width: 25px; stroke: rgb(31, 34, 105);" d="M 425.029 242.433 L 478.064 242.111"/>
+  <path style="fill: none; stroke-linecap: round; stroke-width: 25px; stroke: rgb(31, 34, 105);" d="M 23.235 241.87 L 81.19 243.234"/>
+  <path style="fill: none; stroke-linecap: round; stroke-width: 25px; stroke: rgb(31, 34, 105);" d="M 254.56 15 L 255.139 78.167" transform="matrix(-1, 0, 0, -1, 509.699005, 93.167)"/>
+  <path style="fill: none; stroke-linecap: round; stroke-width: 25px; stroke: rgb(31, 34, 105);" d="M 90.517 81.813 L 130.574 121.323"/>
+  <path style="fill: none; stroke-linecap: round; stroke-width: 25px; stroke: rgb(31, 34, 105);" d="M 374.77 123.177 L 417.313 81.813"/>
+  <path style="fill: none; stroke: rgb(255, 255, 255); stroke-width: 25px; stroke-linecap: round;" d="M 253.926 144.925 C 253.926 144.925 339.138 154.624 344.595 241.911"/>
+</svg>

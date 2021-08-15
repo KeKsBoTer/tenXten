@@ -35,11 +35,7 @@ struct Opt {
     )]
     board_size: usize,
 
-    #[structopt(
-        short,
-        long,
-        help = "write solution(s) to file"
-    )]
+    #[structopt(short, long, help = "write solution(s) to file")]
     output_file: Option<String>,
 
     #[structopt(name = "column", help = "start column")]
@@ -80,14 +76,17 @@ fn main() {
 
     if opt.find_all {
         let mut first = true;
-        for( i,solution) in state.solve_all().enumerate(){
+        for (i, solution) in state.solve_all().enumerate() {
             if first && opt.verbose {
                 first = false;
                 println!("solutions found:");
             }
-            out_writer.write_all(solution.to_string().as_bytes()).unwrap();
-            if i % 10 == 0{
-                print!("\rsolutions found: {:}",i)
+            out_writer
+                .write_all(solution.to_string().as_bytes())
+                .unwrap();
+            out_writer.write_all("\n".as_bytes()).unwrap();
+            if i % 10 == 0 {
+                print!("\rsolutions found: {:}", i)
             }
         }
         if first && opt.verbose {
@@ -99,7 +98,10 @@ fn main() {
                 println!("solution found:");
             }
             if opt.no_animation || opt.output_file.is_some() {
-                out_writer.write_all(solution.to_string().as_bytes()).unwrap();
+                out_writer
+                    .write_all(solution.to_string().as_bytes())
+                    .unwrap();
+                out_writer.write_all("\n".as_bytes()).unwrap();
             } else {
                 solution.play(Duration::from_millis(opt.animation_delay));
             }

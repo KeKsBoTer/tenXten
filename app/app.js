@@ -137,8 +137,7 @@ class Board {
             for (let j = 0; j < this.size; j++) {
                 let cell = document.createElement("td");
                 cell.addEventListener("click", this.onCellClick.bind(this, i, j));
-                cell.style.fontSize = `${cellSize > 30 ? cellSize / 2 : cellSize / 3}px`;
-                console.log(cell.style.fontSize);
+                cell.style.fontSize = `${cellSize > 30 ? cellSize / 2.2 : cellSize / 3}px`;
                 row.appendChild(cell);
             }
             rows.appendChild(row);
@@ -150,22 +149,15 @@ class Board {
 
     async solve() {
         let moves = this.possibleMoves();
-        let numWorkers = moves.length;
         this.workers = moves.map(() => new Worker("./solver_worker.js"));
-        let promises = [];
-        for (let i = 0; i < numWorkers; i++) {
-            promises.push(new Promise((resolve, reject) => {
-                this.workers[i].onmessage = ({ data }) => resolve(data);
-                this.workers[i].onmessageerror = reject;
-                this.workers[i].postMessage([board.board, i])
-            }));
-        }
+        let i = 0;
+        let promises = this.workers.map(p => new Promise((resolve, reject) => {
+            p.onmessage = ({ data }) => resolve(data);
+            p.onmessageerror = reject;
+            p.postMessage([board.board, i++])
+        }));
         let result = await Promise.any(promises);
-        (async () => {
-            for (let i = 0; i < numWorkers; i++) {
-                this.workers[i].terminate();
-            }
-        })();
+        this.workers.forEach(p => p.terminate());
         return result;
     }
 
@@ -380,6 +372,9 @@ async function changeBoardSize(elm) {
     if (board.maxNumber == board.size * board.size || board.maxNumber == 0 || await confirmDialog()) {
         let boardSize = elm.value;
         board.changeSize(boardSize);
+        reset();
+    } else {
+        elm.value = board.size;
     }
 }
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg viewBox="12.998 -9 500 500" xmlns="http://www.w3.org/2000/svg">
+  <path style="fill: rgb(70, 193, 164); stroke: rgb(31, 34, 105); stroke-linecap: round; stroke-linejoin: round; paint-order: fill; stroke-width: 25px;" d="M 36.299 228.891 C 36.04 211.38 62.402 187.666 91.924 160.131 C 134.389 120.524 186.352 76.747 200 63.683 C 214.614 49.694 252.416 27.441 254.012 75.944 C 254.803 99.988 253.286 148.462 253.286 148.462 C 253.286 148.462 332.68 158.518 392.567 210.079 C 488.432 292.616 504.263 408.065 472.654 419.615 C 449.054 428.238 439.439 363.164 375.367 335.408 C 314.841 309.188 252.794 310.593 252.794 310.593 C 252.794 310.593 254.145 329.425 254.659 379.536 C 254.869 400 228.666 419.152 202.633 394.547 C 180.542 373.668 139.403 335.754 100 300 C 69.506 272.33 36.554 246.157 36.299 228.891 Z"/>
+  <path style="paint-order: fill; fill: none; stroke: rgb(255, 255, 255); stroke-linejoin: round; stroke-linecap: round; stroke-width: 30px;" d="M 220.34 173.255 L 220.726 88.304"/>
+  <path style="fill: rgb(216, 216, 216); stroke: rgb(0, 0, 0); paint-order: fill;"/>
+  <path style="paint-order: fill; fill: none; stroke: rgb(255, 253, 253); stroke-linecap: round; stroke-width: 30px;" d="M 252.019 186.175 C 252.019 186.175 321.063 203.018 358.383 230.49 C 407.991 267.007 441.722 331.504 441.722 331.504"/>
+</svg>

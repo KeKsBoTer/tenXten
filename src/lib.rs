@@ -86,31 +86,6 @@ impl Board {
             && !self.occupied((x as usize, y as usize))
     }
 
-    /// This is the heuristic used for finding promising moves.
-    /// The function counts how many moves are possible from each field and returns the sum.
-    /// The larger the sum, the better is the move since it leaves more possible moves open.
-    ///
-    /// TODO: maybe only calculate the change of possible moves for a given move. This does not
-    /// result in a better heuristic but could improve performance a bit.
-    fn sum_moves(&self) -> usize {
-        let mut sum = 0;
-        for i in 0..self.size {
-            for j in 0..self.size {
-                if !self.occupied((j as usize, i as usize)) {
-                    sum += MOVES
-                        .iter()
-                        .filter(|(ox, oy)| {
-                            let x = j as i32 - ox;
-                            let y = i as i32 - oy;
-                            self.valid_and_not_occupied((x, y))
-                        })
-                        .count()
-                }
-            }
-        }
-        return sum;
-    }
-
     fn possible_moves(&self, pos: Option<Move>) -> Vec<Move> {
         match pos {
             // at the beginning all moves are possible
@@ -199,7 +174,8 @@ impl State {
     fn push_moves(&self, queue: &mut PriorityQueue<State, MoveValue>) {
         queue.extend(self.possible_moves().into_iter().map(|m| {
             let new_board = self.make_move(m);
-            let priority = new_board.board.sum_moves();
+            // use Warnsdorff's rule as heuristic
+            let priority = MOVES.len() - new_board.possible_moves().len();
             let depth = new_board.board.max_n;
             (new_board, (depth, priority))
         }));
@@ -255,9 +231,7 @@ impl State {
         let moves = self.possible_moves();
         let m = moves[start_idx % moves.len()];
         let new_board = self.make_move(m);
-        let priority = new_board.board.sum_moves();
-        let depth = new_board.board.max_n;
-        queue.push(new_board, (depth, priority));
+        new_board.push_moves(&mut queue);
 
         while !queue.is_empty() {
             let (state, _) = queue.pop().unwrap();
