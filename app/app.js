@@ -319,6 +319,7 @@ async function restartMaybe() {
 
 async function solveBoard() {
     setButtonsDisabled(true);
+    document.querySelector("#buttonToolbar select").disabled = true;
     let tId = setTimeout(() => {
         solveButton.classList.add("loading");
     }, 500);
@@ -337,11 +338,12 @@ async function solveBoard() {
         restartButton.disabled = false;
         undoButton.disabled = false;
         board.enable();
+        document.querySelector("#buttonToolbar select").disabled = false;
     }
 }
 
 function setButtonsDisabled(disabled) {
-    for (let btn of document.querySelectorAll("#buttonToolbar button:not(#cancelSolve)")) {
+    for (let btn of document.querySelectorAll("#buttonToolbar button")) {
         btn.disabled = disabled;
     }
 }

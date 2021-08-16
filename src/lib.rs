@@ -1,3 +1,4 @@
+#[cfg(not(target_arch = "wasm32"))]
 use priority_queue::PriorityQueue;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
@@ -91,25 +92,22 @@ impl Board {
             // at the beginning all moves are possible
             None => (1..self.size * self.size)
                 .into_iter()
-                .map(|i| ((i / self.size) as usize, (i % self.size) as usize))
+                .filter_map(|i| Some(((i / self.size) as usize, (i % self.size) as usize)))
                 .collect(),
             Some(pos) => MOVES
                 .iter()
                 .filter_map(|(ox, oy)| {
                     let x = pos.0 as i32 - ox;
                     let y = pos.1 as i32 - oy;
-                    if self.valid_and_not_occupied((x, y)) {
-                        Some((x as usize, y as usize))
-                    } else {
-                        None
-                    }
+                    self.valid_and_not_occupied((x, y))
+                        .then(|| (x as usize, y as usize))
                 })
                 .collect(),
         }
     }
 
     /// finds the location of a number within the board
-    #[allow(dead_code)]
+    #[cfg(not(target_arch = "wasm32"))]
     fn num_pos(&self, n: usize) -> Option<Move> {
         if n > self.max_n {
             return None;
@@ -171,6 +169,7 @@ impl State {
     }
 
     /// pushes the next possible moves to a priority queue
+    #[cfg(not(target_arch = "wasm32"))]
     fn push_moves(&self, queue: &mut PriorityQueue<State, MoveValue>) {
         queue.extend(self.possible_moves().into_iter().map(|m| {
             let new_board = self.make_move(m);
@@ -187,10 +186,7 @@ impl State {
         let mut queue = PriorityQueue::<State, MoveValue>::new();
 
         self.push_moves(&mut queue);
-
-        while !queue.is_empty() {
-            let (state, _) = queue.pop().unwrap();
-
+        while let Some((state, _)) = queue.pop() {
             if state.board.is_complete() {
                 if !sender.send(state).is_ok() {
                     return;
@@ -202,7 +198,6 @@ impl State {
         }
     }
 
-    /// returns the first solution that is found
     #[cfg(not(target_arch = "wasm32"))]
     pub fn solve_all(&self) -> std::sync::mpsc::IntoIter<State> {
         let (tx, rx): (Sender<State>, Receiver<State>) = channel();
@@ -219,20 +214,28 @@ impl State {
     }
 
     pub fn solve_one(&self) -> Option<State> {
-        let mut queue = PriorityQueue::<State, MoveValue>::new();
+        self.possible_moves().into_iter().find_map(|open_move| {
+            // makes the first move and then plays the game always making the "best" move
+            // if the resulting board is a win, it is returned else the next start move is tried
+            self.make_move(open_move)
+                .last()
+                .and_then(|solution| solution.board.is_complete().then(|| solution))
+        })
+    }
+}
 
-        self.push_moves(&mut queue);
-
-        while !queue.is_empty() {
-            let (state, _) = queue.pop().unwrap();
-
-            if state.board.is_complete() {
-                return Some(state);
-            }
-
-            state.push_moves(&mut queue);
+impl Iterator for State {
+    type Item = State;
+    fn next(&mut self) -> Option<Self::Item> {
+        // all possible states after one move
+        let boards = self.possible_moves().into_iter().map(|m| self.make_move(m));
+        // find best move (the one with the fewest possible following moves)
+        let best = boards.min_by_key(|s| s.possible_moves().len());
+        if let Some(best_state) = best.clone() {
+            self.board = best_state.board;
+            self.pos = best_state.pos;
         }
-        return None;
+        best
     }
 }
 

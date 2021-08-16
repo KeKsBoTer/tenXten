@@ -47,8 +47,10 @@ table.board {
     border-radius: 10px;
     table-layout: fixed;
     padding: 2px;
-    box-shadow: var(--secondary) 0px 2px 4px 0px,
-        var(--primary) 0px 0px 0px 0px inset;
+
+    border: 4px rgba(29, 29, 27, .15) solid;
+    box-shadow: inset 0px 2px 0px 0px rgba(255, 255, 255, .15), 0px 3px 0px 0px rgba(255, 255, 255, 0.15);
+
     position: relative;
     z-index: 1;
 
@@ -271,6 +273,11 @@ select {
     font-family: inherit;
     font-size: inherit;
     -webkit-appearance: none;
+}
+
+select:disabled {
+    opacity: 0.4;
+    cursor: auto;
 }
 
 option {
