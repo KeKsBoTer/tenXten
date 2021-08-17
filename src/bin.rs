@@ -93,7 +93,7 @@ fn main() {
             println!("no solution found");
         }
     } else {
-        if let Some(solution) = state.solve_one() {
+        if let Some(solution) = state.solve() {
             if opt.verbose {
                 println!("solution found:");
             }

@@ -4,6 +4,8 @@ use priority_queue::PriorityQueue;
 use std::time::Duration;
 use std::{fmt, usize};
 
+use rand::prelude::*;
+
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::mpsc::{channel, Receiver, Sender};
 
@@ -25,9 +27,6 @@ use wasm_bindgen::prelude::*;
 #[macro_use]
 extern crate serde_derive;
 
-#[cfg(target_arch = "wasm32")]
-extern crate console_error_panic_hook;
-
 const MOVES: [(i32, i32); 8] = [
     (-3, 0),
     (3, 0),
@@ -41,6 +40,7 @@ const MOVES: [(i32, i32); 8] = [
 
 type Move = (usize, usize);
 
+#[cfg(not(target_arch = "wasm32"))]
 type MoveValue = (usize, usize);
 
 #[cfg_attr(target_arch = "wasm32", derive(Serialize, Deserialize))]
@@ -112,14 +112,11 @@ impl Board {
         if n > self.max_n {
             return None;
         }
-        for i in 0..self.size {
-            for j in 0..self.size {
-                if self.field[i][j] == n {
-                    return Some((j as usize, i as usize));
-                }
-            }
-        }
-        return None;
+        self.field.iter().enumerate().find_map(|(i, row)| {
+            row.iter()
+                .enumerate()
+                .find_map(|(j, cell)| (*cell == n).then(|| (j, i)))
+        })
     }
 }
 
@@ -199,7 +196,7 @@ impl State {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn solve_all(&self) -> std::sync::mpsc::IntoIter<State> {
+    pub fn solve_all(&self) -> impl Iterator<Item = State> {
         let (tx, rx): (Sender<State>, Receiver<State>) = channel();
         let s = Box::new(rx);
         for m in self.possible_moves() {
@@ -213,14 +210,17 @@ impl State {
         return s.into_iter();
     }
 
-    pub fn solve_one(&self) -> Option<State> {
-        self.possible_moves().into_iter().find_map(|open_move| {
-            // makes the first move and then plays the game always making the "best" move
-            // if the resulting board is a win, it is returned else the next start move is tried
-            self.make_move(open_move)
-                .last()
-                .and_then(|solution| solution.board.is_complete().then(|| solution))
-        })
+    pub fn solve(&self) -> Option<State> {
+        self.possible_moves()
+            .into_iter()
+            .cycle()
+            .find_map(|open_move| {
+                // makes the first move and then plays the game always making the "best" move
+                // if the resulting board is a win, it is returned else the next start move is tried
+                self.make_move(open_move)
+                    .last()
+                    .and_then(|solution| solution.board.is_complete().then(|| solution))
+            })
     }
 }
 
@@ -228,9 +228,17 @@ impl Iterator for State {
     type Item = State;
     fn next(&mut self) -> Option<Self::Item> {
         // all possible states after one move
-        let boards = self.possible_moves().into_iter().map(|m| self.make_move(m));
+        let mut boards: Vec<State> = self
+            .possible_moves()
+            .into_iter()
+            .map(|m| self.make_move(m))
+            .collect();
+
+        let mut rng = rand::thread_rng();
+        boards.shuffle(&mut rng);
+
         // find best move (the one with the fewest possible following moves)
-        let best = boards.min_by_key(|s| s.possible_moves().len());
+        let best = boards.into_iter().min_by_key(|s| s.possible_moves().len());
         if let Some(best_state) = best.clone() {
             self.board = best_state.board;
             self.pos = best_state.pos;
@@ -302,7 +310,6 @@ impl fmt::Display for State {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn solve(js_object: &JsValue) -> Option<Array> {
-    console_error_panic_hook::set_once();
     let field: Box<[Box<[usize]>]> = js_object.into_serde().unwrap();
     let size = field.len();
     let mut max_n = 0;
@@ -320,7 +327,7 @@ pub fn solve(js_object: &JsValue) -> Option<Array> {
         pos: max_n_pos,
     };
     // convert to 2d js array
-    return state.solve_one().and_then(|solution| {
+    return state.solve().and_then(|solution| {
         let size = solution.board.size;
         let a = Array::new_with_length(size as u32);
         for i in 0..size {
@@ -335,4 +342,38 @@ pub fn solve(js_object: &JsValue) -> Option<Array> {
         }
         Some(a)
     });
+}
+#[cfg(test)]
+mod tests {
+    use crate::State;
+
+    // test the solver for a given board size
+    // it tests all possible starts and checks if a solution can be found
+    fn test_for_baord_size(size: usize) {
+        for i in 0..size {
+            for j in 0..size {
+                let start_state = State::new(size).make_move((j, i));
+                let solution = start_state.solve();
+                assert!(
+                    solution.is_some(),
+                    "cannot solve board with start {} {}",
+                    j + 1,
+                    i + 1
+                )
+            }
+        }
+    }
+
+    // create a macro that runs the test for a given board size and size in the test name
+    macro_rules! solver_test {
+        ($($size:expr),*)  => {
+            $(paste::item! {
+                #[test]
+                fn [< solve_board_ $size x $size>]() {
+                    test_for_baord_size($size)
+                }
+            })*
+        }
+    }
+    solver_test!(5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20);
 }
