@@ -46,7 +46,7 @@ type MoveValue = (usize, usize);
 #[cfg_attr(target_arch = "wasm32", derive(Serialize, Deserialize))]
 #[derive(Clone, Hash, Eq)]
 struct Board {
-    field: Box<[Box<[usize]>]>,
+    field: Box<[usize]>,
     max_n: usize,
     size: usize,
 }
@@ -60,19 +60,19 @@ impl PartialEq for Board {
 impl Board {
     fn new(size: usize) -> Self {
         Board {
-            field: (vec![(vec![0; size]).into_boxed_slice(); size]).into_boxed_slice(),
+            field: (vec![0; size * size]).into_boxed_slice(),
             max_n: 0,
             size: size,
         }
     }
 
     fn occupied(&self, m: Move) -> bool {
-        self.field[m.1 as usize][m.0 as usize] != 0
+        self.field[m.1 * self.size + m.0] != 0
     }
 
     fn add_number(&mut self, m: Move) {
         self.max_n += 1;
-        self.field[m.1 as usize][m.0 as usize] = self.max_n;
+        self.field[m.1 * self.size + m.0] = self.max_n;
     }
 
     fn is_complete(&self) -> bool {
@@ -87,30 +87,18 @@ impl Board {
             && !self.occupied((x as usize, y as usize))
     }
 
-    fn possible_moves(&self, pos: Option<Move>) -> impl Iterator<Item = Move> + Clone + '_ {
+    fn possible_moves(&self, pos: Option<Move>) -> Box<dyn Iterator<Item = Move> + '_> {
         if pos.is_none() {
-            panic!("not implemented");
+            Box::new((0..self.size * self.size).map(move |i| (i / self.size, i % self.size)))
+        } else {
+            let (px, py) = pos.unwrap();
+            Box::new(MOVES.iter().filter_map(move |(ox, oy)| {
+                let x = px as i32 - ox;
+                let y = py as i32 - oy;
+                self.valid_and_not_occupied((x, y))
+                    .then(|| (x as usize, y as usize))
+            }))
         }
-        let (px, py) = pos.unwrap();
-        MOVES.iter().filter_map(move |(ox, oy)| {
-            let x = px as i32 - ox;
-            let y = py as i32 - oy;
-            self.valid_and_not_occupied((x, y))
-                .then(|| (x as usize, y as usize))
-        })
-    }
-
-    /// finds the location of a number within the board
-    #[cfg(not(target_arch = "wasm32"))]
-    fn num_pos(&self, n: usize) -> Option<Move> {
-        if n > self.max_n {
-            return None;
-        }
-        self.field.iter().enumerate().find_map(|(i, row)| {
-            row.iter()
-                .enumerate()
-                .find_map(|(j, cell)| (*cell == n).then(|| (j, i)))
-        })
     }
 }
 
@@ -139,14 +127,14 @@ impl State {
         self.apply_move(m);
         let p_moves = self.possible_moves().count();
         // undo move
-        self.board.field[m.1][m.0] = 0;
+        self.board.field[m.1 * self.board.size + m.0] = 0;
         self.board.max_n -= 1;
         self.pos = curr_pos;
         return p_moves;
     }
 
     // returns all possibles moves that can be done from the current state
-    fn possible_moves(&self) -> impl Iterator<Item = Move> + Clone + '_ {
+    fn possible_moves(&self) -> Box<dyn Iterator<Item = Move> + '_> {
         self.board.possible_moves(self.pos)
     }
 
@@ -166,12 +154,24 @@ impl State {
     pub fn play(&self, delay: Duration) {
         let mut m_board = State::new(self.board.size);
         println!("{}", m_board.to_string());
-        for i in 0..self.board.max_n {
-            let pos = self.board.num_pos(i + 1).unwrap();
-            print!("{:}[{:}A", 27 as char, 2 * self.board.size + 1);
-            m_board = m_board.make_move(pos);
-            println!("{}", m_board.to_string());
-            thread::sleep(delay);
+        let size = self.board.size;
+        let mut moves = vec![None; size * size];
+        for i in 0..size {
+            for j in 0..size {
+                let n = self.board.field[i * size + j];
+                moves[n - 1] = Some((j, i));
+            }
+        }
+        for m in moves {
+            match m {
+                Some(pos) => {
+                    print!("{:}[{:}A", 27 as char, 2 * size + 1);
+                    m_board = m_board.make_move(pos);
+                    println!("{}", m_board.to_string());
+                    thread::sleep(delay);
+                }
+                None => return,
+            }
         }
     }
 
@@ -221,11 +221,13 @@ impl State {
     }
 
     pub fn solve(&self) -> Option<State> {
-        self.possible_moves().cycle().find_map(|open_move| {
-            // makes the first move and then plays the game always making the "best" move
-            // if the resulting board is a win, it is returned else the next start move is tried
-            let solution = self.make_move(open_move).take_best_steps();
-            solution.board.is_complete().then(|| solution)
+        (1..5).find_map(|_| {
+            self.possible_moves().find_map(|open_move| {
+                // makes the first move and then plays the game always making the "best" move
+                // if the resulting board is a win, it is returned else the next start move is tried
+                let solution = self.make_move(open_move).take_best_steps();
+                solution.board.is_complete().then(|| solution)
+            })
         })
     }
 
@@ -281,7 +283,7 @@ impl fmt::Display for State {
     /// ║   │  5│   │   │  6│   │   │  7│   │   ║
     /// ╚═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╝
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut possible_moves = self.possible_moves();
+        let possible_moves: Vec<Move> = self.possible_moves().collect();
 
         let top = format!("╔══{:}═╗", "═╤══".repeat(self.board.size - 1));
         let divider = format!("\n╟──{:}─║\n", "─┼──".repeat(self.board.size - 1));
@@ -290,7 +292,7 @@ impl fmt::Display for State {
         let content = self
             .board
             .field
-            .iter()
+            .chunks(self.board.size)
             .enumerate()
             .map(|(i, row)| -> String {
                 let r_f = row
@@ -298,7 +300,7 @@ impl fmt::Display for State {
                     .enumerate()
                     .map(|(j, n)| {
                         if *n == 0 {
-                            if possible_moves.any(|m| m.0 == j && m.1 == i) {
+                            if possible_moves.iter().any(|m| m.0 == j && m.1 == i) {
                                 String::from("▒▒▒")
                             } else {
                                 String::from("   ")
@@ -324,8 +326,10 @@ pub fn solve(js_object: &JsValue) -> Option<Array> {
     let size = field.len();
     let mut max_n = 0;
     let mut max_n_pos = None;
+    let mut flat_field = vec![0; size * size];
     for i in 0..size {
         for j in 0..size {
+            flat_field[i * size + j] = field[i][j];
             if field[i][j] > max_n {
                 max_n = field[i][j];
                 max_n_pos = Some((j, i));
@@ -333,7 +337,11 @@ pub fn solve(js_object: &JsValue) -> Option<Array> {
         }
     }
     let state = State {
-        board: Board { field, max_n, size },
+        board: Board {
+            field: flat_field.into_boxed_slice(),
+            max_n,
+            size,
+        },
         pos: max_n_pos,
     };
     // convert to 2d js array
@@ -345,7 +353,7 @@ pub fn solve(js_object: &JsValue) -> Option<Array> {
             for j in 0..size {
                 b.set(
                     j as u32,
-                    Number::from(solution.board.field[i][j] as u32).into(),
+                    Number::from(solution.board.field[i * size + j] as u32).into(),
                 );
             }
             a.set(i as u32, b.into());

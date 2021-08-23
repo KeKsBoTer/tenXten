@@ -334,7 +334,7 @@ async function solveBoard() {
         if (solution)
             await board.playSolution(solution)
         else
-            await alert("No solution found", "There is no solution for this board")
+            await alert("No solution found", "There exists no solution for this board")
         restartButton.disabled = false;
         undoButton.disabled = false;
         board.enable();
