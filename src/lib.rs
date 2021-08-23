@@ -87,23 +87,17 @@ impl Board {
             && !self.occupied((x as usize, y as usize))
     }
 
-    fn possible_moves(&self, pos: Option<Move>) -> Vec<Move> {
-        match pos {
-            // at the beginning all moves are possible
-            None => (1..self.size * self.size)
-                .into_iter()
-                .filter_map(|i| Some(((i / self.size) as usize, (i % self.size) as usize)))
-                .collect(),
-            Some(pos) => MOVES
-                .iter()
-                .filter_map(|(ox, oy)| {
-                    let x = pos.0 as i32 - ox;
-                    let y = pos.1 as i32 - oy;
-                    self.valid_and_not_occupied((x, y))
-                        .then(|| (x as usize, y as usize))
-                })
-                .collect(),
+    fn possible_moves(&self, pos: Option<Move>) -> impl Iterator<Item = Move> + Clone + '_ {
+        if pos.is_none() {
+            panic!("not implemented");
         }
+        let (px, py) = pos.unwrap();
+        MOVES.iter().filter_map(move |(ox, oy)| {
+            let x = px as i32 - ox;
+            let y = py as i32 - oy;
+            self.valid_and_not_occupied((x, y))
+                .then(|| (x as usize, y as usize))
+        })
     }
 
     /// finds the location of a number within the board
@@ -140,8 +134,19 @@ impl State {
         }
     }
 
-    /// returns all possibles moves that can be done from the current state
-    fn possible_moves(&self) -> Vec<Move> {
+    fn move_value(&mut self, m: Move) -> usize {
+        let curr_pos = self.pos;
+        self.apply_move(m);
+        let p_moves = self.possible_moves().count();
+        // undo move
+        self.board.field[m.1][m.0] = 0;
+        self.board.max_n -= 1;
+        self.pos = curr_pos;
+        return p_moves;
+    }
+
+    // returns all possibles moves that can be done from the current state
+    fn possible_moves(&self) -> impl Iterator<Item = Move> + Clone + '_ {
         self.board.possible_moves(self.pos)
     }
 
@@ -150,6 +155,11 @@ impl State {
         new_board.board.add_number(m);
         new_board.pos = Some(m);
         return new_board;
+    }
+
+    pub fn apply_move(&mut self, m: Move) {
+        self.board.add_number(m);
+        self.pos = Some(m);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -171,7 +181,7 @@ impl State {
         queue.extend(self.possible_moves().into_iter().map(|m| {
             let new_board = self.make_move(m);
             // use Warnsdorff's rule as heuristic
-            let priority = MOVES.len() - new_board.possible_moves().len();
+            let priority = MOVES.len() - new_board.possible_moves().count();
             let depth = new_board.board.max_n;
             (new_board, (depth, priority))
         }));
@@ -211,39 +221,39 @@ impl State {
     }
 
     pub fn solve(&self) -> Option<State> {
-        self.possible_moves()
-            .into_iter()
-            .cycle()
-            .find_map(|open_move| {
-                // makes the first move and then plays the game always making the "best" move
-                // if the resulting board is a win, it is returned else the next start move is tried
-                self.make_move(open_move)
-                    .last()
-                    .and_then(|solution| solution.board.is_complete().then(|| solution))
-            })
+        self.possible_moves().cycle().find_map(|open_move| {
+            // makes the first move and then plays the game always making the "best" move
+            // if the resulting board is a win, it is returned else the next start move is tried
+            let solution = self.make_move(open_move).take_best_steps();
+            solution.board.is_complete().then(|| solution)
+        })
     }
-}
 
-impl Iterator for State {
-    type Item = State;
-    fn next(&mut self) -> Option<Self::Item> {
-        // all possible states after one move
-        let mut boards: Vec<State> = self
-            .possible_moves()
-            .into_iter()
-            .map(|m| self.make_move(m))
-            .collect();
-
+    fn take_best_steps(&self) -> State {
+        let mut tester = self.clone();
+        let mut best = Vec::with_capacity(MOVES.len());
         let mut rng = rand::thread_rng();
-        boards.shuffle(&mut rng);
-
-        // find best move (the one with the fewest possible following moves)
-        let best = boards.into_iter().min_by_key(|s| s.possible_moves().len());
-        if let Some(best_state) = best.clone() {
-            self.board = best_state.board;
-            self.pos = best_state.pos;
+        loop {
+            let moves: Vec<Move> = tester.possible_moves().collect();
+            if moves.len() == 0 {
+                // we reached an end state
+                break;
+            }
+            best.clear();
+            let mut best_value = MOVES.len() + 1;
+            for m in moves {
+                let value = tester.move_value(m);
+                if value < best_value {
+                    best_value = value;
+                    best.clear();
+                    best.push(m);
+                } else if value == best_value {
+                    best.push(m);
+                }
+            }
+            tester.apply_move(*best.choose(&mut rng).unwrap());
         }
-        best
+        tester
     }
 }
 
@@ -271,7 +281,7 @@ impl fmt::Display for State {
     /// ║   │  5│   │   │  6│   │   │  7│   │   ║
     /// ╚═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╝
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let possible_moves = self.possible_moves();
+        let mut possible_moves = self.possible_moves();
 
         let top = format!("╔══{:}═╗", "═╤══".repeat(self.board.size - 1));
         let divider = format!("\n╟──{:}─║\n", "─┼──".repeat(self.board.size - 1));
@@ -288,7 +298,7 @@ impl fmt::Display for State {
                     .enumerate()
                     .map(|(j, n)| {
                         if *n == 0 {
-                            if possible_moves.contains(&(j as usize, i as usize)) {
+                            if possible_moves.any(|m| m.0 == j && m.1 == i) {
                                 String::from("▒▒▒")
                             } else {
                                 String::from("   ")

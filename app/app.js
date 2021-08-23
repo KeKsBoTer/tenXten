@@ -148,7 +148,7 @@ class Board {
     }
 
     async solve() {
-        this.worker = this.worker || new Worker("./solver_worker.js");
+        this.worker = this.worker || new Worker("app/solver_worker.js");
         let result = await new Promise((resolve, reject) => {
             this.worker.onmessage = ({ data }) => resolve(data);
             this.worker.onmessageerror = reject;
@@ -312,7 +312,7 @@ function alert(title, text) {
 }
 
 async function restartMaybe() {
-    if (await confirmDialog()) {
+    if (board.maxNumber == board.size * board.size || await confirmDialog()) {
         reset();
     }
 }

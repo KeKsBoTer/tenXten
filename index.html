@@ -4,9 +4,9 @@
 <head>
   <meta charset="utf-8" />
   <title>10x10 - Game</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="./app/style.css" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script type="module" src="app.js"></script>
+  <script type="module" src="./app/app.js"></script>
 </head>
 
 <body>
@@ -43,7 +43,7 @@
     <div class="popup" id="confirm">
       <header>Restart Game?</header>
       <main>
-        <p>U Sure u wanna restart?</p>
+        <p>Are you sure?</p>
       </main>
       <footer>
         <button id="no" title="No">No</button>
@@ -63,7 +63,7 @@
     <div class="popup" id="gameOver">
       <header>Game Over</header>
       <main>
-        <p>U fucked up</p>
+        <p>No more possible moves left!</p>
       </main>
       <footer>
         <button onclick="hideDialog()">Back</button>
@@ -73,7 +73,7 @@
     <div class="popup" id="winDialog">
       <header>You win!</header>
       <main>
-        <p>U are the man!</p>
+        <p>Congratulation, you won the game!</p>
       </main>
       <footer>
         <button onclick="hideDialog()">Back</button>
