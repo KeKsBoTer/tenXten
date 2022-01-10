@@ -1,6 +1,11 @@
+![App preview image](app/tenXten.jpg)
+
 # 10x10 game solver
 
 This rust program solves the game described [here](https://chycho.blogspot.com/2014/01/an-exercise-for-mind-10-by-10-math.html).
+
+It also contains a WebApp for playing (and solving) the game.
+You can find the WebApp [here](https://keksboter.github.io/tenXten/). 
 
 ## Usage
 
